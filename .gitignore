@@ -1,0 +1,7 @@
+*.txt
+*.DS_Store
+*.egg-info
+.env
+.venv
+*.pyc
+*.md
