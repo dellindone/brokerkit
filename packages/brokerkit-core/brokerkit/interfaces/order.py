@@ -8,7 +8,7 @@ from brokerkit.models.order import Order, OrderRequest
 class OrderProvider(ABC):
 
     @abstractmethod
-    async def place(self, request: OrderRequest) -> Order:
+    async def place_order(self, request: OrderRequest) -> Order:
         """Submit the order; returns the broker's initial Order state."""
 
     @abstractmethod
