@@ -6,6 +6,8 @@ from brokerkit.enums import (
     Exchange, OrderStatus, OrderType, Product, Segment, TransactionType, Validity,
 )
 from brokerkit.models.order import Order, OrderRequest
+from brokerkit.models.portfolio import Holding
+from brokerkit.models.position import Position
 
 _STATUS_MAP: dict[str, OrderStatus] = {
     "NEW": OrderStatus.PENDING,
@@ -97,4 +99,31 @@ def place_response_to_order(data: dict[str, Any], request: OrderRequest) -> Orde
         price=request.price,
         trigger_price=request.trigger_price,
         status_message=data.get("remark"),
+    )
+
+def groww_to_holding(data: dict[str, Any]) -> Holding:
+    return Holding(
+        trading_symbol=data["trading_symbol"],
+        isin=data.get("isin"),
+        quantity=data["quantity"],
+        average_price=_decimal(data["average_price"]) or Decimal("0"),
+        pledged_quantity=data.get("pledge_quantity") or 0,
+        t1_quantity=data.get("t1_quantity") or 0,
+    )
+
+
+def groww_to_position(data: dict[str, Any]) -> Position:
+    # Groww: debit = buy side, credit = sell side
+    return Position(
+        trading_symbol=data["trading_symbol"],
+        exchange=Exchange(data["exchange"]),
+        segment=Segment(data["segment"]),
+        product=Product(data["product"]),
+        quantity=data["quantity"],
+        buy_quantity=data.get("debit_quantity") or 0,
+        buy_price=_decimal(data.get("debit_price")),
+        sell_quantity=data.get("credit_quantity") or 0,
+        sell_price=_decimal(data.get("credit_price")),
+        realised_pnl=_decimal(data.get("realised_pnl")),
+        isin=data.get("symbol_isin"),
     )

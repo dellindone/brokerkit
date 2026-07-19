@@ -49,11 +49,13 @@ Decisions already made:
 - [x] **3.6** `brokerkit_groww/errors.py` — `groww_errors(default)` contextmanager; auth/instrument exceptions map explicitly, rest go to caller-supplied `default` (context decides domain). **Verified live**: unregistered-IP rejection surfaced as core `OrderError`.
 - [x] **3.7** `brokerkit_groww/order.py` (note: singular filename, not orders.py) — `GrowwOrderProvider`, wired in `GrowwBroker.create()`. SDK quirk: `modify_order` requires quantity+order_type, so `modify()` fetches current order to fill unspecified fields; modify/cancel re-fetch via `get_order()` (thin SDK responses; correctness > latency). Decision taken: **no pre-validation** — let broker reject (freeze_quantity etc. stay dropped; revisit with M2 middleware). Code complete; **live place+cancel still unverified** — blocked on static-IP registration (see NEXT SESSION note).
 
-## Phase 4 — Portfolio & Margins
+## Phase 4 — Portfolio
 
-- [ ] **4.1** `brokerkit-core/brokerkit/models/` — `position.py`, `portfolio.py` (holdings), `margin.py`.
-- [ ] **4.2** `brokerkit-core/brokerkit/interfaces/portfolio.py` — holdings, positions, margins methods.
-- [ ] **4.3** `packages/brokerkit-groww/.../portfolio.py` — implement via SDK; extend mapper.
+> Margin dropped from v1 (user call 2026-07-19: "worth nahi hai") — no `Margin` model, no `margins()` on the ABC. Re-add as optional method + model if a strategy actually needs pre-trade margin checks (Groww's `get_available_margin_details` is there when wanted).
+
+- [x] **4.1** `models/position.py` (net qty, buy/sell qty+avg from debit/credit, realised_pnl) + `models/portfolio.py` (`Holding`: demat-level, ISIN-identified, **no exchange field** — deliberate; pledged/t1 quantities kept).
+- [x] **4.2** `interfaces/portfolio.py` — `PortfolioProvider` ABC: `holdings()`, `positions()` only.
+- [x] **4.3** `brokerkit_groww/portfolio.py` — `GrowwPortfolio` + mapper `groww_to_holding`/`groww_to_position` (debit=buy, credit=sell), wired in `create()`. Code complete 2026-07-19; live check pending alongside the 3.7 order test (after static-IP registration).
 
 ## Phase 5 — Market Data (REST)
 
