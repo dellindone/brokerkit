@@ -9,7 +9,9 @@ from brokerkit.models.order import Order, OrderRequest
 from brokerkit.models.portfolio import Holding
 from brokerkit.models.position import Position
 from brokerkit.models.candle import Candle
+from brokerkit.models.instrument import Instrument
 from brokerkit.models.quote import DepthLevel, Ohlc, Quote
+from brokerkit.models.tick import Tick
 
 _STATUS_MAP: dict[str, OrderStatus] = {
     "NEW": OrderStatus.PENDING,
@@ -169,6 +171,20 @@ def groww_to_quote(data: dict[str, Any]) -> Quote:
         open_interest=data.get("open_interest"),
         average_price=_decimal(data.get("average_price")),
         last_trade_time=_epoch_dt(data.get("last_trade_time")),
+    )
+
+
+def groww_to_tick(instrument: Instrument, data: dict[str, Any]) -> Tick:
+    """Feed ka StocksLivePrice dict (proto field names) -> Tick."""
+    ts = data.get("tsInMillis")
+    return Tick(
+        symbol=instrument.symbol,
+        exchange=instrument.exchange,
+        segment=instrument.segment,
+        ltp=_decimal(data.get("ltp")) or Decimal("0"),
+        timestamp=_epoch_dt(int(ts)) if ts else None,
+        volume=int(data.get("volume") or 0),
+        open_interest=data.get("openInterest"),
     )
 
 

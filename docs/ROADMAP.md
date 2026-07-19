@@ -38,7 +38,7 @@ Decisions already made:
 
 ## Phase 3 — Orders
 
-> **▶ NEXT SESSION STARTS HERE:** Phase 6 (streaming). **Two pending user actions on the Groww dashboard:** (1) register static IP ("Add static IP") — unblocks 3.7 live order test; (2) subscribe to the paid live-data API plan — unblocks Phase 5 live test (quote/LTP/OHLC/candles return "Access forbidden" without it) and is needed for Phase 6 streaming too. Verified live so far (2026-07-19): auth, instruments, portfolio holdings, and error translation (IP rejection arrived as core `OrderError`). Test scripts at repo root, uncommitted: `scratch_orders.py`, `scratch_market.py`.
+> **▶ NEXT SESSION STARTS HERE:** Phase 7 (broker assembly: abstract `Broker` + registry/factory + examples). Phases 3–6 all code-complete. **Two pending user actions on the Groww dashboard:** (1) register static IP ("Add static IP") — unblocks 3.7 live order test; (2) subscribe to the paid live-data API plan (₹499/mo + taxes) — unblocks Phase 5 live test (quote/LTP/OHLC/candles return "Access forbidden" without it; verified via raw SDK, not a framework bug) and Phase 6 streaming (live ticks also need market hours). Verified live so far (2026-07-19): auth, instruments, portfolio holdings, error translation (IP rejection arrived as core `OrderError`). Test scripts at repo root, uncommitted: `scratch_orders.py`, `scratch_market.py`.
 
 - [x] **3.0** F&O/options support in core (user decision 2026-07-19 — options trading wanted, incl. for future AI-agent consumers who need typed fields, not symbol parsing): `enums/instrument_type.py` (`InstrumentType`: EQ/FUT/CE/PE/IDX — exact CSV values, verified); `Instrument` gains optional `expiry: date`, `strike: Decimal`, `underlying: str` (None for equities) and `instrument_type` becomes the enum; Groww normalization maps expiry_date/strike_price/underlying_symbol. (Amends the 2.2 YAGNI drop — "re-add when F&O comes"; it came.)
 - [x] **3.1** `brokerkit-core/brokerkit/enums/` — `order_type.py` (MARKET, LIMIT, SL, SL_M), `transaction_type.py` (BUY, SELL), `product.py` (CNC, MIS, NRML), `validity.py` (DAY, IOC), `order_status.py` (canonical 6: PENDING/OPEN/EXECUTED/CANCELLED/REJECTED/FAILED — Groww's 12 raw states collapse in the mapper). Values verified against SDK constants + docs annexure 2026-07-19; SDK extras deliberately excluded (BO/CO/MTF/ARB products, GTC/GTD/EOS validity, GTT/OCO smart orders) — unverified promises; add only when implemented+tested.
@@ -67,9 +67,11 @@ Decisions already made:
 
 ## Phase 6 — Streaming
 
-- [ ] **6.1** `brokerkit-core/brokerkit/interfaces/streaming.py` — subscribe/unsubscribe by instrument, callback-based tick delivery, connection lifecycle.
-- [ ] **6.2** `brokerkit-core/brokerkit/exceptions/streaming.py`.
-- [ ] **6.3** `packages/brokerkit-groww/.../streaming.py` — wrap `GrowwFeed`. Done when live LTP ticks arrive through your interface during market hours.
+> Code complete 2026-07-19 (written by Claude at user's request — mode shift from guide-only). Smoke-tested: ABC contract, tick mapping, thread→loop dispatch, unknown-key drop. **Live tick test pending: needs the paid data subscription + market hours.**
+
+- [x] **6.1** `interfaces/streaming.py` — `StreamingProvider` ABC: `subscribe_ltp(list[Instrument], callback)`, `unsubscribe_ltp`, `close()`. `TickCallback` accepts sync or async callables. + `models/tick.py` (`Tick`: symbol/exchange/segment/ltp/timestamp/volume/open_interest). LTP-only for v1 — GrowwFeed also offers market-depth/index/order-update feeds; add interface methods when needed.
+- [x] **6.2** `exceptions/streaming.py` — `StreamingError` → `StreamingConnectionError`, `NotSubscribedError`; mapped in errors.py `_MAP` from `GrowwFeedConnectionException`/`GrowwFeedNotSubscribedException`.
+- [x] **6.3** `brokerkit_groww/streaming.py` — `GrowwStreaming` wraps `GrowwFeed` (verified against SDK source: feed dicts need exchange/segment/exchange_token; callback fires on a NATS **thread** with meta only). Design: lazy feed construction on first subscribe (socket opens there); `(exchange, segment, token)` registry maps ticks back to Instruments — unknown keys dropped (roadmap decision: only active subscriptions map); NATS-thread callback bounces to the event loop via `call_soon_threadsafe`, then pulls the snapshot from `feed.get_ltp()` and builds `Tick` (proto field names: ltp/tsInMillis/volume/openInterest); async callbacks scheduled with `ensure_future`. Instruments without `exchange_token` are rejected at subscribe. Wired in `create()`.
 
 ## Phase 7 — Broker Assembly
 

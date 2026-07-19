@@ -5,6 +5,7 @@ from brokerkit.models.order import Order, OrderRequest
 from brokerkit.models.portfolio import Holding
 from brokerkit.models.position import Position
 from brokerkit.models.quote import DepthLevel, Ohlc, Quote
+from brokerkit.models.tick import Tick
 
 __all__ = [
     "AuthToken",
@@ -14,4 +15,5 @@ __all__ = [
     "Holding",
     "Position",
     "DepthLevel", "Ohlc", "Quote",
+    "Tick",
 ]

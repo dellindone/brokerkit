@@ -5,18 +5,26 @@ from growwapi.groww.exceptions import (
     BaseGrowwException,
     GrowwAPIAuthenticationException,
     GrowwAPIAuthorisationException,
+    GrowwFeedConnectionException,
+    GrowwFeedNotSubscribedException,
     InstrumentNotFoundException,
 )
 
 from brokerkit.exceptions.auth import AuthenticationError
 from brokerkit.exceptions.common import BrokerKitError
 from brokerkit.exceptions.instrument import InstrumentNotFoundError
+from brokerkit.exceptions.streaming import (
+    NotSubscribedError,
+    StreamingConnectionError,
+)
 
 # Groww exception -> core exception (subclass order matters: specific pehle)
 _MAP: list[tuple[type[BaseGrowwException], type[BrokerKitError]]] = [
     (GrowwAPIAuthenticationException, AuthenticationError),
     (GrowwAPIAuthorisationException, AuthenticationError),
     (InstrumentNotFoundException, InstrumentNotFoundError),
+    (GrowwFeedConnectionException, StreamingConnectionError),
+    (GrowwFeedNotSubscribedException, NotSubscribedError),
 ]
 
 

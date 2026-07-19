@@ -4,18 +4,22 @@ from brokerkit.enums import (
 )
 from brokerkit.exceptions import (
     AuthenticationError, BrokerKitError, InstrumentNotFoundError,
-    InsufficientMarginError, OrderError, OrderRejectedError, TokenExpiredError,
+    InsufficientMarginError, NotSubscribedError, OrderError,
+    OrderRejectedError, StreamingConnectionError, StreamingError,
+    TokenExpiredError,
 )
 from brokerkit.models import (
     AuthToken, Candle, DepthLevel, Holding, Instrument,
-    Ohlc, Order, OrderRequest, Position, Quote,
+    Ohlc, Order, OrderRequest, Position, Quote, Tick,
 )
 
 __all__ = [
     "Exchange", "InstrumentType", "OrderStatus", "OrderType",
     "Product", "Segment", "TransactionType", "Validity",
     "AuthenticationError", "BrokerKitError", "InstrumentNotFoundError",
-    "InsufficientMarginError", "OrderError", "OrderRejectedError", "TokenExpiredError",
+    "InsufficientMarginError", "NotSubscribedError", "OrderError",
+    "OrderRejectedError", "StreamingConnectionError", "StreamingError",
+    "TokenExpiredError",
     "AuthToken", "Candle", "DepthLevel", "Holding", "Instrument",
-    "Ohlc", "Order", "OrderRequest", "Position", "Quote",
+    "Ohlc", "Order", "OrderRequest", "Position", "Quote", "Tick",
 ]

@@ -4,6 +4,7 @@ from brokerkit.interfaces.historical import HistoricalDataProvider
 from brokerkit.interfaces.market import MarketDataProvider
 from brokerkit.interfaces.order import OrderProvider
 from brokerkit.interfaces.portfolio import PortfolioProvider
+from brokerkit.interfaces.streaming import StreamingProvider, TickCallback
 
 __all__ = [
     "InstrumentProvider",
@@ -11,5 +12,7 @@ __all__ = [
     "HistoricalDataProvider",
     "MarketDataProvider",
     "OrderProvider",
-    "PortfolioProvider"
+    "PortfolioProvider",
+    "StreamingProvider",
+    "TickCallback",
 ]
