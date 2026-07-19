@@ -38,7 +38,7 @@ Decisions already made:
 
 ## Phase 3 — Orders
 
-> **▶ NEXT SESSION STARTS HERE:** Phase 4 (4.1 models). **Pending user action first:** register static IP on Groww dashboard ("Add static IP") — 3.7 live test failed with "No registered IPs found for this user" (the SEBI requirement in Decisions). After registering, re-run `scratch_orders.py` (repo root, uncommitted: place after-hours LIMIT RELIANCE @1000 qty1 → get_order → cancel → list_orders) to finish 3.7 verification. Silver lining: the IP error arrived as core `OrderError` — 3.6 error translation + auth + place() path verified live 2026-07-19.
+> **▶ NEXT SESSION STARTS HERE:** Phase 6 (streaming). **Two pending user actions on the Groww dashboard:** (1) register static IP ("Add static IP") — unblocks 3.7 live order test; (2) subscribe to the paid live-data API plan — unblocks Phase 5 live test (quote/LTP/OHLC/candles return "Access forbidden" without it) and is needed for Phase 6 streaming too. Verified live so far (2026-07-19): auth, instruments, portfolio holdings, and error translation (IP rejection arrived as core `OrderError`). Test scripts at repo root, uncommitted: `scratch_orders.py`, `scratch_market.py`.
 
 - [x] **3.0** F&O/options support in core (user decision 2026-07-19 — options trading wanted, incl. for future AI-agent consumers who need typed fields, not symbol parsing): `enums/instrument_type.py` (`InstrumentType`: EQ/FUT/CE/PE/IDX — exact CSV values, verified); `Instrument` gains optional `expiry: date`, `strike: Decimal`, `underlying: str` (None for equities) and `instrument_type` becomes the enum; Groww normalization maps expiry_date/strike_price/underlying_symbol. (Amends the 2.2 YAGNI drop — "re-add when F&O comes"; it came.)
 - [x] **3.1** `brokerkit-core/brokerkit/enums/` — `order_type.py` (MARKET, LIMIT, SL, SL_M), `transaction_type.py` (BUY, SELL), `product.py` (CNC, MIS, NRML), `validity.py` (DAY, IOC), `order_status.py` (canonical 6: PENDING/OPEN/EXECUTED/CANCELLED/REJECTED/FAILED — Groww's 12 raw states collapse in the mapper). Values verified against SDK constants + docs annexure 2026-07-19; SDK extras deliberately excluded (BO/CO/MTF/ARB products, GTC/GTD/EOS validity, GTT/OCO smart orders) — unverified promises; add only when implemented+tested.
@@ -55,13 +55,15 @@ Decisions already made:
 
 - [x] **4.1** `models/position.py` (net qty, buy/sell qty+avg from debit/credit, realised_pnl) + `models/portfolio.py` (`Holding`: demat-level, ISIN-identified, **no exchange field** — deliberate; pledged/t1 quantities kept).
 - [x] **4.2** `interfaces/portfolio.py` — `PortfolioProvider` ABC: `holdings()`, `positions()` only.
-- [x] **4.3** `brokerkit_groww/portfolio.py` — `GrowwPortfolio` + mapper `groww_to_holding`/`groww_to_position` (debit=buy, credit=sell), wired in `create()`. Code complete 2026-07-19; live check pending alongside the 3.7 order test (after static-IP registration).
+- [x] **4.3** `brokerkit_groww/portfolio.py` — `GrowwPortfolio` + mapper `groww_to_holding`/`groww_to_position` (debit=buy, credit=sell), wired in `create()`. **Verified live 2026-07-19** (`holdings()` returned real data — so portfolio reads are NOT blocked by the missing static-IP registration; only order placement is).
 
 ## Phase 5 — Market Data (REST)
 
-- [ ] **5.1** `brokerkit-core/brokerkit/models/quote.py` + `models/candle.py` — quote snapshot (LTP, OHLC, depth), historical candle.
-- [ ] **5.2** `brokerkit-core/brokerkit/interfaces/market.py` + `interfaces/historical.py` — quote/LTP/OHLC (batch-aware: Groww takes up to 50 symbols per call) and historical candles.
-- [ ] **5.3** `packages/brokerkit-groww/.../market.py` + `historical.py` — implement via SDK.
+> Code complete + smoke-tested 2026-07-19 (imports, mapper unit checks, ABC contracts). **Live test blocked: Groww returns "Access forbidden" on data endpoints — needs the paid live-data API subscription on the dashboard** (auth/IP are fine — portfolio reads work). Phase 6 streaming will need the same subscription.
+
+- [x] **5.1** `models/quote.py` (`Quote` + `Ohlc` + `DepthLevel`; offer→ask rename; 52wk/mcap/IV skipped — YAGNI; `open_interest` kept for F&O) + `models/candle.py`.
+- [x] **5.2** `interfaces/market.py` (`MarketDataProvider`: get_quote single, get_ltp/get_ohlc batch — take `list[Instrument]`, return dicts keyed by `instrument.symbol`) + `interfaces/historical.py` (`HistoricalDataProvider.get_candles`, interval in minutes).
+- [x] **5.3** `brokerkit_groww/market.py` (`_fetch_batched`: SDK takes ONE segment per ltp/ohlc call + max 50 symbols — groups by segment, chunks by 50, maps "NSE_SYMBOL" keys back) + `historical.py` (uses deprecated `get_historical_candle_data` — the V2 method needs `groww_symbol` which core `Instrument` doesn't carry) + mapper quote/candle/ohlc functions (`_epoch_dt` handles ms-vs-s ambiguity). Wired in `create()`.
 
 ## Phase 6 — Streaming
 

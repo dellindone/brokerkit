@@ -8,6 +8,8 @@ from brokerkit.enums import (
 from brokerkit.models.order import Order, OrderRequest
 from brokerkit.models.portfolio import Holding
 from brokerkit.models.position import Position
+from brokerkit.models.candle import Candle
+from brokerkit.models.quote import DepthLevel, Ohlc, Quote
 
 _STATUS_MAP: dict[str, OrderStatus] = {
     "NEW": OrderStatus.PENDING,
@@ -39,6 +41,17 @@ def _decimal(v: Any) -> Decimal | None:
 
 def _dt(v: str | None) -> datetime | None:
     return None if v is None else datetime.fromisoformat(v)
+
+def _epoch_dt(v: int | None) -> datetime | None:
+    if not v:
+        return None
+    return datetime.fromtimestamp(v / 1000 if v > 1_000_000_000_000 else v)
+
+def _depth_levels(rows: list | None) -> list[DepthLevel]:
+    return [
+        DepthLevel(price=_decimal(r["price"]) or Decimal("0"), quantity=r["quantity"])
+        for r in rows or []
+    ]
 
 
 def order_request_to_groww(request: OrderRequest) -> dict[str, Any]:
@@ -127,3 +140,47 @@ def groww_to_position(data: dict[str, Any]) -> Position:
         realised_pnl=_decimal(data.get("realised_pnl")),
         isin=data.get("symbol_isin"),
     )
+
+def groww_to_ohlc(data: dict[str, Any]) -> Ohlc:
+    z = Decimal("0")
+    return Ohlc(
+        open=_decimal(data.get("open")) or z,
+        high=_decimal(data.get("high")) or z,
+        low=_decimal(data.get("low")) or z,
+        close=_decimal(data.get("close")) or z,
+    )
+
+def groww_to_quote(data: dict[str, Any]) -> Quote:
+    depth = data.get("depth") or {}
+    return Quote(
+        last_price=_decimal(data.get("last_price")) or Decimal("0"),
+        ohlc=groww_to_ohlc(data.get("ohlc") or {}),
+        volume=data.get("volume") or 0,
+        day_change=_decimal(data.get("day_change")),
+        day_change_perc=data.get("day_change_perc"),
+        bid_price=_decimal(data.get("bid_price")),
+        bid_quantity=data.get("bid_quantity"),
+        ask_price=_decimal(data.get("offer_price")),   # offer -> ask rename
+        ask_quantity=data.get("offer_quantity"),
+        buy_depth=_depth_levels(depth.get("buy")),
+        sell_depth=_depth_levels(depth.get("sell")),
+        upper_circuit=_decimal(data.get("upper_circuit_limit")),
+        lower_circuit=_decimal(data.get("lower_circuit_limit")),
+        open_interest=data.get("open_interest"),
+        average_price=_decimal(data.get("average_price")),
+        last_trade_time=_epoch_dt(data.get("last_trade_time")),
+    )
+
+
+def groww_to_candle(row: list) -> Candle:
+    # [epoch_s, open, high, low, close, volume]
+    z = Decimal("0")
+    return Candle(
+        timestamp=datetime.fromtimestamp(row[0]),
+        open=_decimal(row[1]) or z,
+        high=_decimal(row[2]) or z,
+        low=_decimal(row[3]) or z,
+        close=_decimal(row[4]) or z,
+        volume=row[5] or 0,
+    )
+
