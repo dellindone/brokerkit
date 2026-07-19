@@ -11,7 +11,7 @@ Decisions already made:
 - Groww adapter wraps the official `growwapi` SDK (not raw REST) — it's the only way to get streaming, and auth becomes trivial.
 - Auth: **TOTP-only** in v1 — `GrowwAuth(api_key, totp_secret)`, both required. (Groww's UI offers TOTP token or direct access token; the static-token mode was considered and dropped from v1 for simplicity — easy to add back as an optional `access_token` param. The old key+secret/approval flow is removed from Groww's UI — do not implement it.)
 - SEBI compliance (per Groww dashboard banner): a registered **static IP** is mandatory for API trading (deadline was 31 Mar 2026). API calls may be rejected from unregistered IPs — register via "Add static IP" on the dashboard if requests fail.
-- Instrument interface: minimal — `get_instrument`, `get_by_token`, `search`, `refresh`.
+- Instrument interface: **thin-adapter** (reshaped 2026-07-19, user decision): single method `fetch_instruments() -> list[Instrument]` — fetch + normalize + return, **no storage in the framework** (SDK's DataFrame copy flushed after normalize). Storage/lookups/search are app-level (→ M3.5 DB store). Dropped from the ABC same day: `search`, then `get_instrument`/`get_by_token`/`refresh` (whole cache layer). Consequence for Phase 6: feed subscribe takes `list[Instrument]` from the app (model carries the exchange/segment/token triple the feed topics need — verified against GrowwFeed._get_topics); framework maps ticks only for active subscriptions.
 - **Async-native**: every interface method is `async def`. Adapters wrap sync vendor SDK calls with `asyncio.to_thread(...)`. Blocking calls must never run directly inside interface methods.
 - **Core models use Pydantic v2** (`pydantic>=2` is a `brokerkit-core` dependency): validation at construction, JSON serialization for the FastAPI/AI layers. Enums stay stdlib `enum.Enum`/`StrEnum`.
 - **Instance-scoped state only** (keeps multi-account possible later): no module-level tokens, clients, or caches. One provider/broker instance = one account. A future `BrokerManager` composes N broker instances; deferred until after Milestone 1.
@@ -34,10 +34,11 @@ Decisions already made:
 - [x] **2.2** `models/instrument.py` — `Instrument` (pydantic, Decimal tick_size; derivative fields expiry/strike/underlying dropped for v1 — YAGNI, re-add as optional when F&O comes). Done.
 - [x] **2.3** `interfaces/instrument.py` — `InstrumentProvider` ABC (get_instrument, get_by_token(exchange_token, exchange, segment) — raises not returns None, search, refresh) + `exceptions/instrument.py` with `InstrumentNotFoundError`. Done, incl. top-level re-export (e849dc4).
 - [x] **2.4** `packages/brokerkit-groww/.../instruments.py` — `GrowwInstruments(InstrumentProvider)` sourcing data via the SDK: `to_thread(client.get_all_instruments)` (downloads the public CSV as a str-dtype DataFrame), build own (symbol|token, exchange, segment)→Instrument dicts in one pass, skip unknown-enum rows. SDK's own lookup methods unused (no segment filter/search/refresh); `refresh()` = `client.instruments = None` + reload. SDK writes `instruments.csv` to cwd's parent — gitignore it. Done when `get_instrument("RELIANCE", NSE, CASH)` returns a populated model. Verified live 2026-07-19 (dummy token works — CSV is public; 145,746 instruments cached).
+- [x] **2.5** `packages/brokerkit-groww/.../broker.py` — minimal `GrowwBroker` (pulled forward from 7.1 so framework users never import `growwapi`): `__init__(totp_key, totp_secret)` builds `GrowwAuth` internally (TOTP-only decision reaffirmed 2026-07-19 — no auth injection, no static-token mode); `async connect()` gets token, builds the one shared `GrowwAPI` client, wires `self.instruments`. Grows `.orders` etc. as later phases land. Done when `GrowwBroker(k, s)` → `connect()` → `broker.instruments.get_instrument(...)` works with zero growwapi imports in user code.
 
 ## Phase 3 — Orders
 
-> **▶ NEXT SESSION STARTS HERE:** 3.1 — order enums in `brokerkit-core`.
+> **▶ NEXT SESSION STARTS HERE:** 3.1 — order enums in `brokerkit-core`. (Phase 2 closed 2026-07-19 with the thin-adapter reshape: `fetch_instruments()` only, verified live — 145,748 instruments, SDK copy flushed.)
 
 - [ ] **3.1** `brokerkit-core/brokerkit/enums/` — `order_type.py` (MARKET, LIMIT, SL, SL_M), `transaction_type.py` (BUY, SELL), `product.py` (CNC, MIS, NRML), `validity.py` (DAY, IOC), `order_status.py`.
 - [ ] **3.2** `brokerkit-core/brokerkit/models/order.py` — `OrderRequest` (what a caller submits) and `Order` (what the broker reports back: ids, status, filled qty, avg price).
@@ -75,6 +76,7 @@ Decisions already made:
 
 - **M2 Middleware**: rate limiting (Groww: orders 10/s 250/min, live data 10/s 300/min, other 20/s 500/min), retry, auth-refresh, logging — `brokerkit-core/brokerkit/middleware/`.
 - **M3 Testing package**: mocks/fixtures/contract tests in `brokerkit-testing`; contract test suite any adapter must pass.
+- **M3.5 Instrument store (user idea 2026-07-19)**: DB-backed `InstrumentProvider` (SQLite first) — daily refresh job pulls each broker's master, normalizes to core `Instrument`, upserts; providers query on demand instead of holding ~500 MB in RAM. Schema keyed (broker, exchange, segment, symbol) with per-broker token columns; ISIN links the same equity across brokers. Same ABC, swap-in replacement — strategy code untouched. Build when the second broker or the data pipeline arrives.
 - **M4 Paper broker**: simulated execution reusing Groww instrument data.
 - **M5 Second broker (Fyers or Upstox)**: proves the abstraction; expect interface friction and fixes.
 - **M6 Replay, News, AI packages.**
