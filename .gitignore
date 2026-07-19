@@ -5,4 +5,7 @@
 .venv
 *.pyc
 *.md
+!README.md
+!docs/*.md
 brokerkit_backup*
+instruments.csv
