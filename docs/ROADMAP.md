@@ -40,13 +40,14 @@ Decisions already made:
 
 > **▶ NEXT SESSION STARTS HERE:** 3.1 — order enums in `brokerkit-core`. (Phase 2 closed 2026-07-19 with the thin-adapter reshape: `fetch_instruments()` only, verified live — 145,748 instruments, SDK copy flushed.)
 
-- [ ] **3.1** `brokerkit-core/brokerkit/enums/` — `order_type.py` (MARKET, LIMIT, SL, SL_M), `transaction_type.py` (BUY, SELL), `product.py` (CNC, MIS, NRML), `validity.py` (DAY, IOC), `order_status.py`.
+- [ ] **3.0** F&O/options support in core (user decision 2026-07-19 — options trading wanted, incl. for future AI-agent consumers who need typed fields, not symbol parsing): `enums/instrument_type.py` (`InstrumentType`: EQ/FUT/CE/PE/IDX — exact CSV values, verified); `Instrument` gains optional `expiry: date`, `strike: Decimal`, `underlying: str` (None for equities) and `instrument_type` becomes the enum; Groww normalization maps expiry_date/strike_price/underlying_symbol. (Amends the 2.2 YAGNI drop — "re-add when F&O comes"; it came.)
+- [ ] **3.1** `brokerkit-core/brokerkit/enums/` — `order_type.py` (MARKET, LIMIT, SL, SL_M), `transaction_type.py` (BUY, SELL), `product.py` (CNC, MIS, NRML), `validity.py` (DAY, IOC), `order_status.py` (canonical 6: PENDING/OPEN/EXECUTED/CANCELLED/REJECTED/FAILED — Groww's 12 raw states collapse in the mapper). Values verified against SDK constants + docs annexure 2026-07-19; SDK extras deliberately excluded (BO/CO/MTF/ARB products, GTC/GTD/EOS validity, GTT/OCO smart orders) — unverified promises; add only when implemented+tested.
 - [ ] **3.2** `brokerkit-core/brokerkit/models/order.py` — `OrderRequest` (what a caller submits) and `Order` (what the broker reports back: ids, status, filled qty, avg price).
 - [ ] **3.3** `brokerkit-core/brokerkit/exceptions/order.py` — `OrderError`, `OrderRejectedError`, `InsufficientMarginError`.
 - [ ] **3.4** `brokerkit-core/brokerkit/interfaces/order.py` — `OrderProvider` ABC: place, modify, cancel, get_order, list_orders.
 - [ ] **3.5** `packages/brokerkit-groww/.../mapper.py` — enum + field translation between core models and Groww SDK dicts. Start with order mappings; grows in later phases.
 - [ ] **3.6** `packages/brokerkit-groww/.../errors.py` — map growwapi exceptions → core exceptions.
-- [ ] **3.7** `packages/brokerkit-groww/.../orders.py` — `GrowwOrderProvider`. Done when you can place + cancel a real (or after-hours rejected) order through the interface.
+- [ ] **3.7** `packages/brokerkit-groww/.../orders.py` — `GrowwOrderProvider`. Done when you can place + cancel a real (or after-hours rejected) order through the interface. Decision to make here: pre-validation using the 4 instrument-master columns we currently drop (`freeze_quantity`, `buy_allowed`, `sell_allowed`, `is_intraday` — audited 2026-07-19) vs letting the broker reject; if pre-validating, add them as optional Instrument fields then.
 
 ## Phase 4 — Portfolio & Margins
 
