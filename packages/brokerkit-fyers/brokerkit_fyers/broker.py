@@ -1,10 +1,12 @@
 import asyncio
+from datetime import datetime
 
 from fyers_apiv3.fyersModel import FyersModel
 
 from brokerkit.assembly import Broker
+from brokerkit.utils.datetime import IST
 
-from brokerkit_fyers.auth import FyersAuth, REFRESH_INTERVAL
+from brokerkit_fyers.auth import FyersAuth
 from brokerkit_fyers.instruments import FyersInstruments
 from brokerkit_fyers.order import FyersOrderProvider
 from brokerkit_fyers.portfolio import FyersPortfolio
@@ -20,16 +22,18 @@ class FyersBroker(Broker):
         self,
         client_id: str,
         secret_key: str,
+        redirect_uri: str,
+        fy_id: str,
+        totp_secret: str,
         pin: str,
-        access_token: str,
-        refresh_token: str,
     ):
         self.auth = FyersAuth(
             client_id=client_id,
             secret_key=secret_key,
+            redirect_uri=redirect_uri,
+            fy_id=fy_id,
+            totp_secret=totp_secret,
             pin=pin,
-            access_token=access_token,
-            refresh_token=refresh_token,
         )
         self._client_id = client_id
         self.instruments = None
@@ -46,30 +50,25 @@ class FyersBroker(Broker):
         cls,
         client_id: str,
         secret_key: str,
+        redirect_uri: str,
+        fy_id: str,
+        totp_secret: str,
         pin: str,
-        access_token: str,
-        refresh_token: str,
     ):
-        """Needs a bootstrap access_token + refresh_token obtained once via
-        the browser login flow — see login_helper.py / the package README.
-        From there this behaves like GrowwBroker.create(): one shared
-        client, a background refresh loop, zero fyers_apiv3 imports needed
-        in user code.
-        """
         broker = cls(
             client_id=client_id,
             secret_key=secret_key,
+            redirect_uri=redirect_uri,
+            fy_id=fy_id,
+            totp_secret=totp_secret,
             pin=pin,
-            access_token=access_token,
-            refresh_token=refresh_token,
         )
         token = await broker.auth.get_token()
         # is_async=False deliberately, matching Groww's adapter: we wrap
         # the sync client via asyncio.to_thread everywhere rather than use
         # the SDK's own is_async=True mode, whose error-handling paths
         # (FyersServiceAsync) are visibly rougher than the sync ones when
-        # reading the source (an undefined-variable risk on some
-        # exception branches) — consistency with the rest of the framework
+        # reading the source — consistency with the rest of the framework
         # also matters more here than the marginal efficiency gain.
         broker._client = FyersModel(client_id=client_id, token=token.token, is_async=False)
         broker.instruments = FyersInstruments()
@@ -82,15 +81,18 @@ class FyersBroker(Broker):
         return broker
 
     async def _auto_refresh_loop(self) -> None:
-        """Unlike Groww's deterministic 6 AM IST expiry, Fyers gives no
-        reliable expiry signal — refresh on a fixed conservative interval
-        (see auth.REFRESH_INTERVAL) instead of sleeping until a guessed
-        timestamp.
+        """Sleeps until the token's assumed expiry, then does a full fresh
+        TOTP+PIN login — same sleep-until-expiry shape as
+        GrowwBroker._auto_refresh_loop, except Fyers gives no deterministic
+        reset time like Groww's 6 AM IST (see auth.ASSUMED_VALIDITY), so
+        the "expiry" here is a conservative assumption, not a known fact.
         """
         retry_delay = 60
         while True:
             try:
-                await asyncio.sleep(REFRESH_INTERVAL.total_seconds())
+                token = await self.auth.get_token()
+                sleep_for = (token.expires_at - datetime.now(IST)).total_seconds()
+                await asyncio.sleep(max(sleep_for, 0))
                 fresh = await self.auth.login()
                 # FyersModel caches "client_id:token" as `.header` at
                 # construction time (verified from SDK source — every API

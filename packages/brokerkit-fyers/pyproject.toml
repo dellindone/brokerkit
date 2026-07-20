@@ -9,4 +9,6 @@ dependencies = [
     "brokerkit-core",
     "fyers-apiv3",
     "requests",
+    "pyotp",
+    "flask",
 ]

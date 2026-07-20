@@ -12,17 +12,32 @@ pip install brokerkit-core brokerkit-fyers
 
 ## Prerequisites (Fyers dashboard)
 
-1. Create an API app at [myapi.fyers.in/dashboard](https://myapi.fyers.in/dashboard) — you get a `client_id` (App ID) and `secret_key` (App Secret), and register a `redirect_uri`.
-2. Know your Fyers trading **PIN** (the 4-digit PIN used for order confirmation / token refresh).
-3. Run `login_helper.py` (in this package) **once, manually** — it opens a browser for you to log in and prints an `access_token` + `refresh_token`. Save both.
+1. Create an API app at [myapi.fyers.in/dashboard](https://myapi.fyers.in/dashboard) — you get a `client_id` (App ID) and `secret_key` (App Secret), and register a `redirect_uri` (a plain `http://127.0.0.1:<port>/` URL).
+2. Enable TOTP-based 2FA on your Fyers login and note the **TOTP secret** (same secret you'd scan into an authenticator app).
+3. Know your **Fyers ID** (login username, e.g. `"FAJ46068"`) and your 4-digit trading **PIN**.
+4. **One-time only, per app:** activate the app via a real browser login —
 
-## Why the manual step — Fyers auth, honestly
+   ```python
+   from brokerkit_fyers import get_access_token
 
-Unlike Groww (pure TOTP, fully silent), Fyers' *official* auth is browser-redirect only: `generate-authcode` → you log in in a browser → Fyers redirects with an `auth_code` → `validate-authcode` exchanges it for an `access_token` (valid ~24h) + `refresh_token` (valid ~15 days). There's no officially-documented, SDK-wrapped way to skip that first browser round-trip.
+   get_access_token(client_id="...", secret_key="...", redirect_uri="http://127.0.0.1:5000/")
+   ```
 
-What FyersBroker *does* automate: once you have that initial pair, it self-refreshes the `access_token` in the background using the `refresh_token` + your PIN via Fyers' `/validate-refresh-token` endpoint — not wrapped by the SDK, so `brokerkit_fyers.auth.FyersAuth` calls it directly. This works for up to ~15 days without touching a browser again, on the same cadence idea as `GrowwBroker`'s auto-refresh loop (see `FyersBroker._auto_refresh_loop`). After ~15 days (or if the refresh_token is ever invalidated), you re-run `login_helper.py` once and restart the broker with the fresh pair.
+   Opens a browser to log in, catches the redirect on a local server, and prints an `access_token` — that's just proof the app + credentials work end-to-end, you don't need to save it. Confirmed necessary by testing: a brand-new app returns `"invalid totp"` on step 4 below until this has been done once; it worked immediately after. Exact mechanism unconfirmed (Fyers doesn't document this), but the fix is repeatable.
 
-(There's a widely-used *unofficial* trick — TOTP + PIN hitting Fyers' undocumented internal login endpoints — that gets fully silent login like Groww's. Deliberately not implemented here: it's reverse-engineered, not part of any SDK, and could break or draw ToS scrutiny without notice.)
+After that one-time step, everything is credential-only — no more browser, no token to copy-paste.
+
+## Auth, honestly
+
+Fyers' *officially documented* auth is browser-redirect only: `generate-authcode` → you log in in a browser → Fyers redirects with an `auth_code` → `validate-authcode` exchanges it for an `access_token`. There's no SDK-wrapped way to skip that browser round-trip through the official flow alone — that's what `get_access_token()` above does, and per the testing above, a new app seems to need it run once regardless.
+
+`FyersAuth` (used by `create_broker("fyers", ...)` for every login after that) instead drives the same internal endpoints Fyers' own web login uses (`api-t2.fyers.in/vagator/v2/*`) — TOTP for the OTP step, PIN for the next — to get an `auth_code` programmatically, then finishes with the *official*, documented exchange (`SessionModel.generate_token()`). This is a known community pattern, not something invented here; it was adopted after cross-verifying against a previously-working implementation of the same flow, not guessed. `login()` does this full sequence fresh every time — no persisted refresh_token to track, same ergonomics as `GrowwAuth`. `FyersBroker._auto_refresh_loop()` sleeps until the token's assumed expiry (Fyers gives no reliable expiry signal, unlike Groww's deterministic 6 AM IST) and re-logs in automatically. **Verified live 2026-07-20** against a real account (auth + instrument fetch + quote).
+
+**Trade-off, stated plainly:** the `auth_code`-acquisition part of `FyersAuth` isn't part of any Fyers SDK or public API contract — it plays back a sequence the Fyers *website* uses internally, not a documented integration surface. It could break without notice on a UI/security change on Fyers' end. If that ever happens, only `brokerkit_fyers/auth.py` needs to change — the rest of the adapter is unaffected, and `get_access_token()` (the official flow) still works as a fallback.
+
+### `get_access_token()` internals
+
+Runs a tiny local Flask server on your `redirect_uri` to catch `auth_code` directly instead of asking you to copy-paste it from the browser address bar — manual copy-paste of that (very long) JWT is exactly what caused an `"invalid auth code"` failure while first building this. Can also be run from the command line: `python -m brokerkit_fyers.login_helper <client_id> <secret_key> <redirect_uri>`.
 
 ## Quick start
 
@@ -37,9 +52,10 @@ async def main():
         "fyers",
         client_id="XC4EOD67IM-100",
         secret_key="...",
+        redirect_uri="http://127.0.0.1:5000/",
+        fy_id="FAJ46068",
+        totp_secret="...",
         pin="1234",
-        access_token="...",   # from login_helper.py
-        refresh_token="...",  # from login_helper.py
     )
 
     instruments = await broker.instruments.fetch_instruments()
@@ -147,4 +163,4 @@ except OrderError as e:
 
 ## Live verification status
 
-Verified live 2026-07-20 (no auth needed): `fetch_instruments()` against the real public CSVs (~128k instruments across EQ/IDX/FUT/CE/PE, `RELIANCE-EQ` resolves correctly with real ISIN/tick size). Auth, orders, portfolio, market data, and streaming are code-complete and unit-checked against real captured response shapes, but not yet exercised against a live account — that needs a real `client_id`/`secret_key`/PIN to run `login_helper.py` against.
+Verified live 2026-07-20 (no auth needed): `fetch_instruments()` against the real public CSVs (~128k instruments across EQ/IDX/FUT/CE/PE, `RELIANCE-EQ` resolves correctly with real ISIN/tick size). The TOTP+PIN login sequence itself was cross-verified against a previously-working implementation, not guessed. Orders, portfolio, market data, and streaming are code-complete and unit-checked against real captured response shapes, but not yet exercised against a live account.
