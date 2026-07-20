@@ -5,6 +5,7 @@ from brokerkit_groww.market import GrowwMarketData
 from brokerkit_groww.historical import GrowwHistorical
 from brokerkit_groww.order import GrowwOrderProvider
 from brokerkit_groww.portfolio import GrowwPortfolio
+from brokerkit_groww.streaming import GrowwStreaming
 
 __all__ = [
     "GrowwAuth",
@@ -14,4 +15,5 @@ __all__ = [
     "GrowwHistorical",
     "GrowwOrderProvider",
     "GrowwPortfolio",
+    "GrowwStreaming",
 ]

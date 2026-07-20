@@ -1,5 +1,7 @@
 from growwapi import GrowwAPI
 
+from brokerkit.assembly import Broker
+
 from brokerkit_groww.auth import GrowwAuth
 from brokerkit_groww.instruments import GrowwInstruments
 from brokerkit_groww.order import GrowwOrderProvider
@@ -8,7 +10,9 @@ from brokerkit_groww.market import GrowwMarketData
 from brokerkit_groww.historical import GrowwHistorical
 from brokerkit_groww.streaming import GrowwStreaming
 
-class GrowwBroker:
+class GrowwBroker(Broker):
+    name = "groww"
+
     def __init__(self, totp_key: str, totp_secret: str):
         self.auth = GrowwAuth(totp_key=totp_key, totp_secret=totp_secret)
         self.instruments = None

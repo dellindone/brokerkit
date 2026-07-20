@@ -1,3 +1,4 @@
+from brokerkit.assembly import Broker, BrokerManager, create_broker
 from brokerkit.enums import (
     Exchange, InstrumentType, OrderStatus, OrderType,
     Product, Segment, TransactionType, Validity,
@@ -14,6 +15,7 @@ from brokerkit.models import (
 )
 
 __all__ = [
+    "Broker", "BrokerManager", "create_broker",
     "Exchange", "InstrumentType", "OrderStatus", "OrderType",
     "Product", "Segment", "TransactionType", "Validity",
     "AuthenticationError", "BrokerKitError", "InstrumentNotFoundError",
