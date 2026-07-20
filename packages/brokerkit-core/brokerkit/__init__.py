@@ -11,7 +11,8 @@ from brokerkit.exceptions import (
 )
 from brokerkit.models import (
     AuthToken, Candle, DepthLevel, Holding, Instrument,
-    Ohlc, Order, OrderRequest, Position, Quote, Tick,
+    Ohlc, OptionChain, OptionChainStrike, OptionContract, OptionGreeks,
+    Order, OrderRequest, Position, Quote, Tick,
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "OrderRejectedError", "StreamingConnectionError", "StreamingError",
     "TokenExpiredError",
     "AuthToken", "Candle", "DepthLevel", "Holding", "Instrument",
-    "Ohlc", "Order", "OrderRequest", "Position", "Quote", "Tick",
+    "Ohlc", "OptionChain", "OptionChainStrike", "OptionContract", "OptionGreeks",
+    "Order", "OrderRequest", "Position", "Quote", "Tick",
 ]

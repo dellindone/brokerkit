@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from brokerkit.enums import (
-    Exchange, OrderStatus, OrderType, Product, Segment, TransactionType, Validity,
+    Exchange, InstrumentType, OrderStatus, OrderType, Product, Segment, TransactionType, Validity,
 )
 from brokerkit.models.order import Order, OrderRequest
+from brokerkit.models.option_chain import OptionChain, OptionChainStrike, OptionContract, OptionGreeks
 from brokerkit.models.portfolio import Holding
 from brokerkit.models.position import Position
 from brokerkit.models.candle import Candle
@@ -198,5 +199,53 @@ def groww_to_candle(row: list) -> Candle:
         low=_decimal(row[3]) or z,
         close=_decimal(row[4]) or z,
         volume=row[5] or 0,
+    )
+
+
+def groww_to_option_greeks(data: dict[str, Any] | None) -> OptionGreeks | None:
+    if not data:
+        return None
+    return OptionGreeks(
+        delta=data["delta"], gamma=data["gamma"], theta=data["theta"],
+        vega=data["vega"], iv=data["iv"], rho=data.get("rho"),
+    )
+
+
+def groww_to_option_contract(
+    data: dict[str, Any], strike: Decimal, option_type: InstrumentType
+) -> OptionContract:
+    # bid_price/ask_price deliberately left at their None default — Groww's
+    # option-chain endpoint doesn't document or (per a third-party typed
+    # SDK cross-check) expose them, unlike Fyers'. Not guessed.
+    return OptionContract(
+        symbol=data["trading_symbol"],
+        strike=strike,
+        option_type=option_type,
+        ltp=_decimal(data.get("ltp")) or Decimal("0"),
+        open_interest=int(data.get("open_interest") or 0),
+        volume=int(data.get("volume") or 0),
+        greeks=groww_to_option_greeks(data.get("greeks")),
+    )
+
+
+def groww_to_option_chain(data: dict[str, Any], underlying_symbol: str, expiry: date) -> OptionChain:
+    """`strikes` = dict keyed by strike-price string, each with "ce"/"pe"
+    sub-objects (verified against a third-party typed Go SDK — Groww's
+    own docs don't show the nesting explicitly)."""
+    strikes: list[OptionChainStrike] = []
+    for strike_str, entry in (data.get("strikes") or {}).items():
+        strike = Decimal(strike_str)
+        ce, pe = entry.get("ce"), entry.get("pe")
+        strikes.append(OptionChainStrike(
+            strike=strike,
+            call=groww_to_option_contract(ce, strike, InstrumentType.CE) if ce else None,
+            put=groww_to_option_contract(pe, strike, InstrumentType.PE) if pe else None,
+        ))
+    strikes.sort(key=lambda s: s.strike)
+    return OptionChain(
+        underlying_symbol=underlying_symbol,
+        underlying_ltp=_decimal(data.get("underlying_ltp")) or Decimal("0"),
+        expiry=expiry,
+        strikes=strikes,
     )
 

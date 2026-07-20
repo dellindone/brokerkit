@@ -105,6 +105,17 @@ await broker.market.get_ohlc([reliance, infy])           # dict[symbol, Ohlc]
 ```
 `get_ltp`/`get_ohlc` batch and chunk internally (Groww allows up to 50 symbols per call, one segment at a time) — pass as many instruments as you want.
 
+```python
+from datetime import date
+
+chain = await broker.market.get_option_chain(nifty_index, expiry=date(2026, 7, 21), strike_count=10)
+print(chain.underlying_ltp)
+for s in chain.strikes:
+    print(s.strike, s.call.ltp if s.call else None, s.call.greeks.delta if s.call and s.call.greeks else None)
+```
+
+`expiry` is required — Groww's endpoint has no "nearest expiry" convenience and no strike-count filter either (`strike_count` is accepted for interface parity with Fyers but ignored — Groww always returns the full chain). Unlike Fyers, Groww's greeks include `rho` — but Groww's contracts have no `bid_price`/`ask_price` at all (confirmed absent via both the official docs' field list and a third-party typed SDK, not guessed — always `None` here; Fyers' do have them, useful for a liquidity check before trading). **Not yet live-tested** — blocked by the same paid live-data subscription that blocks `get_quote`/`get_ltp`/`get_ohlc`/candles; mapper unit-tested against a real captured response shape (cross-verified via a third-party typed Go SDK, since Groww's own docs don't show the exact JSON nesting).
+
 ### `broker.historical` — `HistoricalDataProvider`
 
 ```python

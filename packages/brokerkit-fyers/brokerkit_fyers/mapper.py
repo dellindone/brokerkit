@@ -1,11 +1,12 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
 from brokerkit.enums import (
-    Exchange, OrderStatus, OrderType, Product, Segment, TransactionType, Validity,
+    Exchange, InstrumentType, OrderStatus, OrderType, Product, Segment, TransactionType, Validity,
 )
 from brokerkit.models.order import Order, OrderRequest
+from brokerkit.models.option_chain import OptionChain, OptionChainStrike, OptionContract, OptionGreeks
 from brokerkit.models.portfolio import Holding
 from brokerkit.models.position import Position
 from brokerkit.models.candle import Candle
@@ -246,4 +247,59 @@ def fyers_to_candle(row: list) -> Candle:
         low=_decimal(row[3]) or z,
         close=_decimal(row[4]) or z,
         volume=row[5] or 0,
+    )
+
+
+def fyers_to_option_greeks(data: dict[str, Any] | None) -> OptionGreeks | None:
+    if not data:
+        return None
+    # Verified live 2026-07-20: Fyers' greeks object has no "rho" key
+    # (unlike Groww's, which does) — genuine capability difference.
+    return OptionGreeks(
+        delta=data["delta"], gamma=data["gamma"], theta=data["theta"],
+        vega=data["vega"], iv=data["iv"],
+    )
+
+
+def fyers_to_option_contract(data: dict[str, Any]) -> OptionContract:
+    _, symbol = _split_symbol(data["symbol"])
+    return OptionContract(
+        symbol=symbol,
+        strike=Decimal(str(data["strike_price"])),
+        option_type=InstrumentType(data["option_type"]),
+        ltp=_decimal(data.get("ltp")) or Decimal("0"),
+        open_interest=int(data.get("oi") or 0),
+        volume=int(data.get("volume") or 0),
+        bid_price=_decimal(data.get("bid")),
+        ask_price=_decimal(data.get("ask")),
+        greeks=fyers_to_option_greeks(data.get("greeks")),
+    )
+
+
+def fyers_to_option_chain(data: dict[str, Any], underlying_symbol: str, expiry: date) -> OptionChain:
+    """`data` = response["data"] from optionchain(). The first entry in
+    optionsChain is always the underlying itself (option_type == "",
+    strike_price == -1) — verified live; skipped when building strikes,
+    used only for underlying_ltp.
+    """
+    chain = data.get("optionsChain") or []
+    underlying_ltp = Decimal("0")
+    by_strike: dict[Decimal, dict[str, OptionContract]] = {}
+    for entry in chain:
+        opt_type = entry.get("option_type")
+        if opt_type not in ("CE", "PE"):
+            underlying_ltp = _decimal(entry.get("ltp")) or underlying_ltp
+            continue
+        contract = fyers_to_option_contract(entry)
+        by_strike.setdefault(contract.strike, {})[opt_type] = contract
+
+    strikes = [
+        OptionChainStrike(strike=strike, call=legs.get("CE"), put=legs.get("PE"))
+        for strike, legs in sorted(by_strike.items())
+    ]
+    return OptionChain(
+        underlying_symbol=underlying_symbol,
+        underlying_ltp=underlying_ltp,
+        expiry=expiry,
+        strikes=strikes,
     )

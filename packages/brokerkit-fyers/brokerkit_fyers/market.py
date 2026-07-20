@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date, datetime, time
 from decimal import Decimal
 
 from fyers_apiv3.fyersModel import FyersModel
@@ -6,10 +7,18 @@ from fyers_apiv3.fyersModel import FyersModel
 from brokerkit.exceptions.common import BrokerKitError
 from brokerkit.interfaces.market import MarketDataProvider
 from brokerkit.models.instrument import Instrument
+from brokerkit.models.option_chain import OptionChain
 from brokerkit.models.quote import Ohlc, Quote
+from brokerkit.utils.datetime import IST
 
 from brokerkit_fyers.errors import check
-from brokerkit_fyers.mapper import fyers_symbol, fyers_to_ohlc, fyers_to_quote
+from brokerkit_fyers.mapper import fyers_symbol, fyers_to_ohlc, fyers_to_option_chain, fyers_to_quote
+
+# Fyers' optionchain `timestamp` param wants the expiry's epoch — verified
+# live (decoded real expiryData entries): always 15:30:00 IST on the
+# expiry date, not midnight. Computed directly rather than round-tripping
+# through an empty-timestamp call first to discover it.
+_EXPIRY_CUTOFF = time(15, 30)
 
 # /quotes takes up to 50 comma-separated symbols per call (verified from the
 # fyersModel.quotes docstring).
@@ -42,6 +51,22 @@ class FyersMarketData(MarketDataProvider):
     async def get_ohlc(self, instruments: list[Instrument]) -> dict[str, Ohlc]:
         quotes = await self._fetch_quotes(instruments)
         return {symbol: fyers_to_ohlc(v) for symbol, v in quotes.items()}
+
+    async def get_option_chain(
+        self, underlying: Instrument, expiry: date, strike_count: int = 10
+    ) -> OptionChain:
+        timestamp = int(datetime.combine(expiry, _EXPIRY_CUTOFF, tzinfo=IST).timestamp())
+        resp = await asyncio.to_thread(
+            self._client.optionchain,
+            {
+                "symbol": fyers_symbol(underlying),
+                "strikecount": strike_count,
+                "timestamp": str(timestamp),
+                "greeks": "1",
+            },
+        )
+        check(resp)
+        return fyers_to_option_chain(resp.get("data") or {}, underlying.symbol, expiry)
 
     async def _fetch_quotes(self, instruments: list[Instrument]) -> dict[str, dict]:
         """instrument.symbol (bare) -> the raw "v" object, batched/chunked

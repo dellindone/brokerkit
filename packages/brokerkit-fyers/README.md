@@ -94,6 +94,17 @@ await broker.market.get_ohlc([reliance, tcs])        # dict[symbol, Ohlc]
 
 `get_ltp`/`get_ohlc` batch up to 50 symbols per call (Fyers' own limit) and chunk automatically. Note: Fyers' `/quotes` doesn't return market depth or circuit limits (those live on a separate `/depth` endpoint this adapter doesn't call for `get_quote`) — the resulting `Quote` is narrower than Groww's equivalent on those fields; that's a real capability difference between the two brokers, not a bug here.
 
+```python
+from datetime import date
+
+chain = await broker.market.get_option_chain(nifty_index, expiry=date(2026, 7, 21), strike_count=10)
+print(chain.underlying_ltp)
+for s in chain.strikes:
+    print(s.strike, s.call.ltp if s.call else None, s.call.greeks.delta if s.call and s.call.greeks else None)
+```
+
+`expiry` is required (no "nearest expiry" convenience in v1 — caller must know a valid one, e.g. from Fyers' own app). `timestamp` is computed internally as 15:30:00 IST on that date, verified against real `expiryData` values, not guessed. **Verified live 2026-07-20** against a real account (real NIFTY greeks: delta/gamma/theta/vega/iv; real bid/ask spreads for liquidity checks before trading). Fyers' greeks have no `rho` (`OptionGreeks.rho` is always `None` here) — Groww's do. Groww's contracts have no `bid_price`/`ask_price` at all (confirmed absent, not guessed) — Fyers' do.
+
 ### `broker.historical` — `HistoricalDataProvider`
 
 ```python
@@ -170,7 +181,7 @@ Verified live against a real account, 2026-07-20:
 
 - **Auth** — TOTP+PIN auto-login (`FyersAuth`), after the one-time `get_access_token()` app-activation step.
 - **Instruments** — `fetch_instruments()` against the real public CSVs (127,758 instruments across EQ/IDX/FUT/CE/PE, `RELIANCE-EQ` resolves correctly with real ISIN/tick size). No auth needed for this one.
-- **Market data** — `get_quote()`, `get_ltp()`, `get_ohlc()`.
+- **Market data** — `get_quote()`, `get_ltp()`, `get_ohlc()`, `get_option_chain()` (real NIFTY greeks confirmed).
 - **Historical** — `get_candles()`.
 - **Portfolio** — `holdings()`, `positions()`.
 - **Streaming** — `subscribe_ltp()` against real ticks during market hours (single symbol and a 50-symbol batch).

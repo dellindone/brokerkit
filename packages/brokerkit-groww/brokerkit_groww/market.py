@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -6,10 +7,11 @@ from growwapi import GrowwAPI
 
 from brokerkit.interfaces.market import MarketDataProvider
 from brokerkit.models.instrument import Instrument
+from brokerkit.models.option_chain import OptionChain
 from brokerkit.models.quote import Ohlc, Quote
 
 from brokerkit_groww.errors import groww_errors
-from brokerkit_groww.mapper import groww_to_ohlc, groww_to_quote
+from brokerkit_groww.mapper import groww_to_ohlc, groww_to_option_chain, groww_to_quote
 
 _BATCH = 50
 
@@ -36,6 +38,20 @@ class GrowwMarketData(MarketDataProvider):
     async def get_ohlc(self, instruments: list[Instrument]) -> dict[str, Ohlc]:
         raw = await self._fetch_batched(instruments, self._client.get_ohlc)
         return {sym: groww_to_ohlc(v) for sym, v in raw.items()}
+
+    async def get_option_chain(
+        self, underlying: Instrument, expiry: date, strike_count: int = 10
+    ) -> OptionChain:
+        # Groww's endpoint has no strike-count filter — always returns the
+        # full chain; strike_count is accepted for interface parity but unused.
+        with groww_errors():
+            data = await asyncio.to_thread(
+                self._client.get_option_chain,
+                exchange=underlying.exchange.value,
+                underlying=underlying.symbol,
+                expiry_date=expiry.isoformat(),
+            )
+        return groww_to_option_chain(data, underlying.symbol, expiry)
 
     async def _fetch_batched(self, instruments: list[Instrument], sdk_method: Callable) -> dict[str, Any]:
         by_segment: dict[str, list[Instrument]] = {}
