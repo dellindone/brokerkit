@@ -13,7 +13,7 @@ pip install brokerkit-core brokerkit-groww
 ## Prerequisites (Groww dashboard)
 
 1. **TOTP credentials** — Groww's API auth is TOTP-only. Get your `api_key` + `totp_secret` from the Groww API dashboard.
-2. **Static IP registration** ("Add static IP" on the dashboard) — required by SEBI rules for order placement. Without it, `orders.place()` fails with an IP-rejection error (reads like holdings/instruments still work fine).
+2. **Static IP registration** ("Add static IP" on the dashboard) — required by SEBI rules for order placement. Without it, `orders.place_order()` fails with an IP-rejection error (reads — holdings, instruments — still work fine).
 3. **Trading API subscription** (₹499/month + taxes) — required for market data (quotes, LTP, OHLC, historical candles) and streaming. Without it, those calls raise `BrokerKitError("Access forbidden...")`.
 
 Auth, instrument lookup, and portfolio reads work without either of the above.
@@ -131,6 +131,16 @@ await broker.streaming.close()
 ```
 Callback can be sync or async. Requires `instrument.exchange_token` to be set (comes from `fetch_instruments()`).
 
+## Auth & token lifetime
+
+Groww's TOTP flow has three layers, easy to mix up:
+
+- **TOTP secret** (`totp_secret`) — never expires. Used to generate a fresh 6-digit code every 30 seconds.
+- **TOTP code** — lives 30 seconds, but only matters at login; it's consumed once to fetch the access token and then discarded.
+- **Access token** — the thing that actually authenticates every API call. Expires daily at **6 AM IST**.
+
+You don't need to think about any of this during normal use: `GrowwBroker` runs a background refresh loop (started in `create()`, stopped in `close()`) that sleeps until the token's known 6 AM IST expiry, re-logs in, and swaps the token in place — every provider (`orders`, `portfolio`, `market`, ...) picks it up automatically since they all share one underlying client. A long-running bot survives across days without manual re-auth. If a refresh attempt fails (network blip), it retries after 60s rather than dying silently.
+
 ## Errors
 
 Every `growwapi` exception is translated into a `brokerkit` exception before it reaches your code — you never need to catch `growwapi.groww.exceptions.*` directly:
@@ -139,7 +149,7 @@ Every `growwapi` exception is translated into a `brokerkit` exception before it 
 from brokerkit import BrokerKitError, OrderError, StreamingError
 
 try:
-    await broker.orders.place(request)
+    await broker.orders.place_order(request)
 except OrderError as e:
     print("order failed:", e)
 ```
@@ -155,6 +165,6 @@ manager = BrokerManager()
 await manager.add("primary", "groww", totp_key=k1, totp_secret=s1)
 await manager.add("secondary", "groww", totp_key=k2, totp_secret=s2)
 
-await manager["primary"].orders.place(request)
+await manager["primary"].orders.place_order(request)
 await manager.close_all()
 ```
