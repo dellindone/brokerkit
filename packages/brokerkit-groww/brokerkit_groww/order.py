@@ -22,7 +22,7 @@ class GrowwOrderProvider(OrderProvider):
         payload = order_request_to_groww(request)
         with groww_errors(OrderError):
             resp = await asyncio.to_thread(self._client.place_order, **payload)
-        return place_response_to_order(resp)
+        return place_response_to_order(resp, request)
 
     async def modify(
             self, order_id: str, segment: Segment, *,
