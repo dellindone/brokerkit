@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brokerkit-fyers"
+version = "0.0.0"
+dependencies = [
+    "brokerkit-core",
+    "fyers-apiv3",
+    "requests",
+]
