@@ -14,8 +14,9 @@ pip install brokerkit-core brokerkit-fyers
 
 1. Create an API app at [myapi.fyers.in/dashboard](https://myapi.fyers.in/dashboard) — you get a `client_id` (App ID) and `secret_key` (App Secret), and register a `redirect_uri` (a plain `http://127.0.0.1:<port>/` URL).
 2. Enable TOTP-based 2FA on your Fyers login and note the **TOTP secret** (same secret you'd scan into an authenticator app).
-3. Know your **Fyers ID** (login username, e.g. `"FAJ46068"`) and your 4-digit trading **PIN**.
-4. **One-time only, per app:** activate the app via a real browser login —
+3. Know your **Fyers ID** (login username, e.g. `"XX00000"`) and your 4-digit trading **PIN**.
+4. **Static IP registration** (SEBI rule, same requirement as Groww) — needed for order placement. Without it, `orders.place_order()`/`modify()`/`cancel()` fail; reads (`instruments`, `market`, `historical`, `portfolio`, `orders.list_orders()`, `streaming`) all work fine without it.
+5. **One-time only, per app:** activate the app via a real browser login —
 
    ```python
    from brokerkit_fyers import get_access_token
@@ -50,10 +51,10 @@ from brokerkit import Exchange, Segment, create_broker
 async def main():
     broker = await create_broker(
         "fyers",
-        client_id="XC4EOD67IM-100",
+        client_id="XXXXXXXXXX-100",
         secret_key="...",
         redirect_uri="http://127.0.0.1:5000/",
-        fy_id="FAJ46068",
+        fy_id="XX00000",
         totp_secret="...",
         pin="1234",
     )
@@ -139,6 +140,8 @@ await broker.orders.list_orders()
 
 Fyers has no single-order lookup endpoint — `get_order`/`list_orders` fetch the whole orderbook and filter, same as the official SDK's own `get_orders()` helper does internally. No client-side pre-validation, same philosophy as the Groww adapter — Fyers rejects invalid orders and the reason comes back as `Order.status_message`.
 
+`place_order`/`modify`/`cancel` need the static IP registered (see Prerequisites) — untested live for that reason. `list_orders()` (read-only) works without it and is live-verified.
+
 ### `broker.portfolio` — `PortfolioProvider`
 
 ```python
@@ -163,4 +166,12 @@ except OrderError as e:
 
 ## Live verification status
 
-Verified live 2026-07-20 (no auth needed): `fetch_instruments()` against the real public CSVs (~128k instruments across EQ/IDX/FUT/CE/PE, `RELIANCE-EQ` resolves correctly with real ISIN/tick size). The TOTP+PIN login sequence itself was cross-verified against a previously-working implementation, not guessed. Orders, portfolio, market data, and streaming are code-complete and unit-checked against real captured response shapes, but not yet exercised against a live account.
+Verified live against a real account, 2026-07-20:
+
+- **Auth** — TOTP+PIN auto-login (`FyersAuth`), after the one-time `get_access_token()` app-activation step.
+- **Instruments** — `fetch_instruments()` against the real public CSVs (127,758 instruments across EQ/IDX/FUT/CE/PE, `RELIANCE-EQ` resolves correctly with real ISIN/tick size). No auth needed for this one.
+- **Market data** — `get_quote()`, `get_ltp()`, `get_ohlc()`.
+- **Historical** — `get_candles()`.
+- **Portfolio** — `holdings()`, `positions()`.
+- **Streaming** — `subscribe_ltp()` against real ticks during market hours (single symbol and a 50-symbol batch).
+- **Orders** — `list_orders()` (read-only) works. `place_order`/`modify`/`cancel` are code-complete and unit-checked against real captured response shapes, but not yet live-tested — blocked on static IP registration (see Prerequisites), same blocker Groww hit for the same SEBI rule.
