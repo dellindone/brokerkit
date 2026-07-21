@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brokerkit-angelone"
+version = "0.0.0"
+dependencies = [
+    "brokerkit-core",
+    "smartapi-python",
+    # smartapi-python's own setup.py forgets to declare these, but SmartConnect
+    # imports logzero at module top and SmartWebSocketV2 imports websocket
+    # (websocket-client) — so they must be installed alongside it or import
+    # fails. pyotp is for the TOTP auto-login. requests for the public master.
+    "logzero",
+    "websocket-client",
+    "pyotp",
+    "requests",
+]

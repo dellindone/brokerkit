@@ -10,3 +10,6 @@
 brokerkit_backup*
 instruments.csv
 *.log
+# smartapi-python (Angel One) writes logs/<date>/app.log into the cwd
+# from SmartConnect.__init__ / SmartWebSocketV2.__init__ — unavoidable SDK side effect
+logs/

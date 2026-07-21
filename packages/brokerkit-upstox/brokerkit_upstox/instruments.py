@@ -53,6 +53,10 @@ def _instrument_type(raw: str, segment: Segment) -> InstrumentType | None:
     return None
 
 
+# Upstox master prices are in paise (see tick_size below).
+_TICK_PAISE_PER_RUPEE = Decimal("100")
+
+
 def _parse_row(row: dict) -> Instrument | None:
     segment = _SEGMENT_MAP.get(row.get("segment"))
     if segment is None:
@@ -71,7 +75,15 @@ def _parse_row(row: dict) -> Instrument | None:
         isin=row.get("isin"),
         exchange_token=row["instrument_key"],  # Upstox addresses everything by instrument_key
         lot_size=int(row.get("lot_size") or 1),
-        tick_size=Decimal(str(row.get("tick_size") or "0.05")),
+        # Upstox's tick_size is in PAISE, like Dhan's and Angel One's — caught
+        # 2026-07-21 by a cross-broker comparison of the same instruments:
+        # Angel/Fyers/Dhan all normalize RELIANCE to Rs 0.10 and a NIFTY option
+        # to Rs 0.05, while this adapter was reporting 10.0 and 5.0 (100x too
+        # large) straight off the raw master. Three independent brokers
+        # agreeing is what settled which side was wrong.
+        tick_size=(Decimal(str(row["tick_size"])) / _TICK_PAISE_PER_RUPEE)
+        if row.get("tick_size")
+        else Decimal("0.05"),
         expiry=datetime.fromtimestamp(expiry_ms / 1000).date() if expiry_ms else None,
         strike=Decimal(str(strike)) if strike else None,
         underlying=row.get("underlying_symbol"),
