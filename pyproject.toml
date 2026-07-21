@@ -101,3 +101,12 @@ Issues = "https://github.com/dellindone/brokerkit/issues"
 # the repo root and would treat docs/, examples/ and packages/ as packages.
 [tool.setuptools]
 packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# The pure/contract/type-hint tiers need zero network and zero credentials.
+# `live` is a credential-gated smoke tier that skips cleanly when creds are
+# absent — never required for CI green (see tests/test_live_smoke.py).
+markers = [
+    "live: hits a real broker API; skipped unless that broker's credentials are in the environment",
+]
