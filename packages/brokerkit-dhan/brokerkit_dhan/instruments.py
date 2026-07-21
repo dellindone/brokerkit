@@ -1,0 +1,157 @@
+import asyncio
+import csv
+import io
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+import requests
+
+from brokerkit.enums import Exchange, InstrumentType, Segment
+from brokerkit.interfaces.instrument import InstrumentProvider
+from brokerkit.models.instrument import Instrument
+
+# Public, unauthenticated. dhanhq's own Security.fetch_security_list()
+# writes the CSV to disk before reading it back with pandas (verified in
+# _security.py) — bypassed here in favor of an in-memory fetch, matching
+# every other adapter's no-file-write convention.
+#
+# BOTH files are needed (real gap, live-verified 2026-07-21): the detailed
+# CSV has ISIN/UNDERLYING_SYMBOL but NO exchange trading symbol at all
+# (Dhan's own column table confirms SEM_TRADING_SYMBOL is compact-only —
+# for equities the ticker leaks into UNDERLYING_SYMBOL, but for options
+# that column holds the underlying, so it can't serve as a unique symbol),
+# while the compact CSV has SEM_TRADING_SYMBOL but no ISIN/underlying.
+# Fetched concurrently and joined on (exchange, segment, security_id).
+_DETAILED_CSV_URL = "https://images.dhan.co/api-data/api-scrip-master-detailed.csv"
+_COMPACT_CSV_URL = "https://images.dhan.co/api-data/api-scrip-master.csv"
+
+# The `INSTRUMENT` column (NOT `INSTRUMENT_TYPE`, a noisy ~25-value
+# exchange-defined set including bonds/ETFs/REITs with no clean core
+# mapping) matches the Annexure's Instrument table exactly.
+_INSTRUMENT_TYPE = {
+    "EQUITY": InstrumentType.EQ,
+    "INDEX": InstrumentType.IDX,
+    "FUTIDX": InstrumentType.FUT,
+    "FUTSTK": InstrumentType.FUT,
+    "FUTCOM": InstrumentType.FUT,
+    # OPTIDX/OPTSTK/OPTFUT resolved via the OPTION_TYPE column (CE/PE) instead.
+}
+
+# Real SEGMENT values (verified live): E/D/M/I/C. Core Segment has no
+# INDEX or CURRENCY value — index rows map to CASH (same precedent as
+# Fyers' index rows living in its CASH CSV), currency rows (C) are
+# excluded entirely (same precedent as Fyers dropping NSE_CD).
+_SEGMENT = {
+    "E": Segment.CASH,
+    "D": Segment.FNO,
+    "M": Segment.COMMODITY,
+    "I": Segment.CASH,
+}
+
+_PLACEHOLDER_DATE = date(1, 1, 1)  # SM_EXPIRY_DATE's "0001-01-01" = "no expiry"
+
+# Dhan's CSV TICK_SIZE is in PAISE, not rupees (live-verified 2026-07-21):
+# AMARA RAJA (~₹1093) shows "5.0000" = ₹0.05, SENSEX options "5.0000" = ₹0.05,
+# USDINR future "0.2500" = ₹0.0025, GOLD future "100.0000" = ₹1.00, bonds
+# "1.0000" = ₹0.01 — every tradeable case confirms ÷100. Without this every
+# instrument's tick_size would be 100x too large.
+_TICK_PAISE_PER_RUPEE = Decimal("100")
+
+
+def _decimal_or_none(v: str) -> Decimal | None:
+    if not v:
+        return None
+    try:
+        d = Decimal(v)
+    except InvalidOperation:
+        return None
+    return d if d > 0 else None  # STRIKE_PRICE placeholder is "0.00000" / negative for non-options
+
+
+def _parse_row(row: dict[str, str], trading_symbols: dict[tuple[str, str, str], str]) -> Instrument | None:
+    segment = _SEGMENT.get(row["SEGMENT"])
+    if segment is None:
+        return None  # currency (C) or an unrecognized segment
+
+    instrument = row["INSTRUMENT"]
+    option_type = row.get("OPTION_TYPE", "")
+    if instrument in ("OPTIDX", "OPTSTK", "OPTFUT"):
+        if option_type not in ("CE", "PE"):
+            return None
+        instrument_type = InstrumentType(option_type)
+    else:
+        instrument_type = _INSTRUMENT_TYPE.get(instrument)
+        if instrument_type is None:
+            return None  # FUTCUR/OPTCUR (currency derivatives) etc.
+
+    symbol = trading_symbols.get((row["EXCH_ID"], row["SEGMENT"], row["SECURITY_ID"]))
+    if not symbol:
+        return None  # not present in the compact master — no usable trading symbol
+
+    isin = row.get("ISIN") or ""
+    isin = isin if len(isin) == 12 and isin.startswith("IN") else None
+
+    expiry_raw = row.get("SM_EXPIRY_DATE") or ""
+    expiry: date | None = None
+    if expiry_raw:
+        try:
+            expiry = datetime.strptime(expiry_raw[:10], "%Y-%m-%d").date()
+        except ValueError:
+            expiry = None
+        if expiry == _PLACEHOLDER_DATE:
+            expiry = None
+
+    lot_size_raw = row.get("LOT_SIZE") or ""
+    tick_size_raw = row.get("TICK_SIZE") or ""
+
+    return Instrument(
+        symbol=symbol,
+        exchange=Exchange(row["EXCH_ID"]),
+        segment=segment,
+        instrument_type=instrument_type,
+        name=row.get("SYMBOL_NAME") or "",
+        isin=isin,
+        exchange_token=row["SECURITY_ID"],
+        lot_size=int(float(lot_size_raw)) if lot_size_raw else 1,
+        tick_size=(Decimal(tick_size_raw) / _TICK_PAISE_PER_RUPEE) if tick_size_raw else Decimal("0.05"),
+        expiry=expiry,
+        strike=_decimal_or_none(row.get("STRIKE_PRICE") or ""),
+        underlying=row.get("UNDERLYING_SYMBOL") or None,
+    )
+
+
+def _fetch_csv(url: str) -> str:
+    response = requests.get(url, timeout=60)
+    response.raise_for_status()
+    return response.text
+
+
+def _parse(detailed_text: str, compact_text: str) -> list[Instrument]:
+    trading_symbols: dict[tuple[str, str, str], str] = {}
+    for row in csv.DictReader(io.StringIO(compact_text)):
+        key = (row.get("SEM_EXM_EXCH_ID", ""), row.get("SEM_SEGMENT", ""), row.get("SEM_SMST_SECURITY_ID", ""))
+        symbol = row.get("SEM_TRADING_SYMBOL") or ""
+        if symbol:
+            trading_symbols[key] = symbol
+
+    out: list[Instrument] = []
+    for row in csv.DictReader(io.StringIO(detailed_text)):
+        try:
+            inst = _parse_row(row, trading_symbols)
+        except (ValueError, KeyError):
+            continue
+        if inst is not None:
+            out.append(inst)
+    return out
+
+
+class DhanInstruments(InstrumentProvider):
+    """No auth needed — Dhan's instrument masters are public CSVs, fetched
+    fresh every call (same no-caching contract as Groww/Fyers/Upstox)."""
+
+    async def fetch_instruments(self) -> list[Instrument]:
+        detailed_text, compact_text = await asyncio.gather(
+            asyncio.to_thread(_fetch_csv, _DETAILED_CSV_URL),
+            asyncio.to_thread(_fetch_csv, _COMPACT_CSV_URL),
+        )
+        return await asyncio.to_thread(_parse, detailed_text, compact_text)

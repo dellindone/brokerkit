@@ -9,6 +9,7 @@ from brokerkit_upstox.market_information import UpstoxMarketInformation
 from brokerkit_upstox.news import UpstoxNews
 from brokerkit_upstox.order import MultiOrderResult, UpstoxOrderProvider
 from brokerkit_upstox.portfolio import UpstoxPortfolio
+from brokerkit_upstox.risk_control import KillSwitchSegment, UpstoxRiskControl
 from brokerkit_upstox.streaming import UpstoxStreaming
 
 __all__ = [
@@ -27,5 +28,7 @@ __all__ = [
     "MultiOrderResult",
     "UpstoxOrderProvider",
     "UpstoxPortfolio",
+    "KillSwitchSegment",
+    "UpstoxRiskControl",
     "UpstoxStreaming",
 ]

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brokerkit-dhan"
+version = "0.0.0"
+dependencies = [
+    "brokerkit-core",
+    "dhanhq==2.3.0rc1",
+    "requests",
+    "pyotp",
+    "websockets",
+]

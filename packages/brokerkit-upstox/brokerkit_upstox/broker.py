@@ -15,6 +15,7 @@ from brokerkit_upstox.market_information import UpstoxMarketInformation
 from brokerkit_upstox.news import UpstoxNews
 from brokerkit_upstox.order import UpstoxOrderProvider
 from brokerkit_upstox.portfolio import UpstoxPortfolio
+from brokerkit_upstox.risk_control import UpstoxRiskControl
 from brokerkit_upstox.streaming import UpstoxStreaming
 
 
@@ -96,6 +97,10 @@ class UpstoxBroker(Broker):
             write_configuration = Configuration()
             self.orders = UpstoxOrderProvider(oauth, write_configuration)
             self.portfolio = UpstoxPortfolio(oauth, write_configuration)
+            # Kill switch (Trader's Control) — account-scoped write, needs
+            # OAuth, so wired alongside orders/portfolio (not available on
+            # an analytics-token-only broker).
+            self.risk_control = UpstoxRiskControl(oauth, write_configuration)
 
         if sandbox_token is not None:
             # Real SDK gotcha, verified from source (`configuration.py`'s

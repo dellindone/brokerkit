@@ -183,3 +183,25 @@ class UpstoxOrderProvider(OrderProvider):
         with upstox_errors(OrderError):
             resp = await asyncio.to_thread(self._read.get_order_book, _API_VERSION)
         return [upstox_to_order(o.to_dict()) for o in resp.data or []]
+
+    async def exit_all_positions(self, segment: str | None = None, tag: str | None = None) -> list[str]:
+        """Bulk-exit all open positions (optionally filtered to one
+        `segment`, e.g. "NSE_EQ"). Upstox-exclusive extra, not on the shared
+        ABC (no Groww/Fyers equivalent) — same placement as place_multi_order.
+        Returns the order_ids of the exit orders placed. `OrderApi.exit_positions`
+        (self._read) despite being a write, verified from source."""
+        await self._refresh_token()
+        kwargs = {k: v for k, v in (("segment", segment), ("tag", tag)) if v is not None}
+        with upstox_errors(OrderError):
+            resp = await asyncio.to_thread(self._read.exit_positions, **kwargs)
+        return list(resp.data.order_ids) if resp.data else []
+
+    async def cancel_all_orders(self, segment: str | None = None, tag: str | None = None) -> list[str]:
+        """Cancel all open/pending orders (AMO + regular), optionally
+        filtered to one `segment`. Returns the cancelled order_ids.
+        `OrderApi.cancel_multi_order`, verified from source."""
+        await self._refresh_token()
+        kwargs = {k: v for k, v in (("segment", segment), ("tag", tag)) if v is not None}
+        with upstox_errors(OrderError):
+            resp = await asyncio.to_thread(self._read.cancel_multi_order, **kwargs)
+        return list(resp.data.order_ids) if resp.data else []
