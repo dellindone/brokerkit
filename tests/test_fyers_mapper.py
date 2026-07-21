@@ -1,8 +1,9 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
-from brokerkit.enums import OrderStatus, OrderType, Product, TransactionType
+from brokerkit.enums import InstrumentType, OrderStatus, OrderType, Product, TransactionType
 from brokerkit.models.order import OrderRequest
 
 from tests.support import load_adapter_module
@@ -52,6 +53,57 @@ def test_fyers_quote_tick_and_candle_mapping(mapper, cash_instrument):
     assert quote.ohlc.close == Decimal("1395")
     assert tick.volume == 11
     assert candle.close == Decimal("1.5")
+
+
+def test_fyers_portfolio_odd_keys_and_no_isin(mapper):
+    holding = mapper.fyers_to_holding(
+        {
+            "symbol": "NSE:RELIANCE",
+            "quantity": 10,
+            "costPrice": 1400.5,
+            "collateralQuantity": 4,  # -> pledged_quantity
+            "qty_t1": 2,  # -> t1_quantity
+        }
+    )
+    assert holding.trading_symbol == "RELIANCE"
+    assert holding.pledged_quantity == 4
+    assert holding.t1_quantity == 2
+    assert holding.isin is None  # Fyers holdings carry no ISIN
+
+    position = mapper.fyers_to_position(
+        {
+            "symbol": "NSE:RELIANCE", "segment": 10, "productType": "INTRADAY",
+            "netQty": 5, "buyQty": 8, "buyAvg": 1400, "sellQty": 3, "sellAvg": 1410,
+            "realized_profit": 30,
+        }
+    )
+    assert position.buy_quantity == 8
+    assert position.isin is None
+
+
+def test_fyers_option_chain_skips_underlying_and_omits_rho(mapper):
+    chain = mapper.fyers_to_option_chain(
+        {
+            "optionsChain": [
+                # first entry is the underlying itself (option_type "", strike -1)
+                {"symbol": "NSE:NIFTY50-INDEX", "option_type": "", "strike_price": -1, "ltp": 24000},
+                {"symbol": "NSE:NIFTY24100CE", "option_type": "CE", "strike_price": 24100, "ltp": 10,
+                 "oi": 100, "volume": 5, "bid": 9.5, "ask": 10.5,
+                 "greeks": {"delta": 0.5, "gamma": 0.01, "theta": -1.2, "vega": 3.4, "iv": 12.5}},
+                {"symbol": "NSE:NIFTY24000PE", "option_type": "PE", "strike_price": 24000, "ltp": 9,
+                 "oi": 80, "volume": 4, "bid": 8.5, "ask": 9.5, "greeks": None},
+            ]
+        },
+        "NIFTY",
+        date(2026, 7, 30),
+    )
+    assert chain.underlying_ltp == Decimal("24000")  # read off the skipped underlying row
+    assert [s.strike for s in chain.strikes] == [Decimal("24000"), Decimal("24100")]  # sorted
+    ce = chain.strikes[1].call
+    assert ce.option_type is InstrumentType.CE
+    assert ce.greeks is not None and ce.greeks.delta == 0.5
+    assert ce.greeks.rho is None  # Fyers' greeks object has no rho (unlike Groww's)
+    assert chain.strikes[0].put.greeks is None  # PE row had greeks: None
 
 
 @pytest.mark.parametrize("raw, expected", [(4, OrderStatus.PENDING), (6, OrderStatus.OPEN), (2, OrderStatus.EXECUTED)])

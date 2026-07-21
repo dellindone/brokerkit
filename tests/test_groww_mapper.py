@@ -85,6 +85,42 @@ def test_groww_quote_and_option_chain_normalize_decimal_values(mapper, cash_inst
     assert chain.strikes[0].put.symbol == "PE"
 
 
+# Regression: Groww names the position sides debit/credit (not buy/sell) and
+# stashes ISIN under symbol_isin — a wrong key here silently zeros the field.
+def test_groww_portfolio_maps_debit_credit_and_odd_keys(mapper):
+    holding = mapper.groww_to_holding(
+        {
+            "trading_symbol": "RELIANCE",
+            "isin": "INE002A01018",
+            "quantity": 10,
+            "average_price": "1400.5",
+            "pledge_quantity": 4,  # not "pledged_quantity"
+            "t1_quantity": 2,
+        }
+    )
+    assert holding.pledged_quantity == 4
+    assert holding.average_price == Decimal("1400.5")
+
+    position = mapper.groww_to_position(
+        {
+            "trading_symbol": "RELIANCE",
+            "exchange": "NSE",
+            "segment": "CASH",
+            "product": "CNC",
+            "quantity": 5,
+            "debit_quantity": 8,  # buy side
+            "debit_price": "1400",
+            "credit_quantity": 3,  # sell side
+            "credit_price": "1410",
+            "realised_pnl": "30",
+            "symbol_isin": "INE002A01018",  # not "isin"
+        }
+    )
+    assert position.buy_quantity == 8
+    assert position.sell_quantity == 3
+    assert position.isin == "INE002A01018"
+
+
 @pytest.mark.parametrize("raw, expected", [("OPEN", OrderStatus.OPEN), ("CANCELLED", OrderStatus.CANCELLED)])
 def test_groww_status_map_is_explicit(mapper, raw, expected):
     assert mapper.map_status(raw) is expected

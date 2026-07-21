@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -80,6 +81,61 @@ def test_upstox_rejects_unknown_status(mapper):
 def test_upstox_rejects_unknown_product(mapper):
     with pytest.raises(ValueError, match="Unknown/unsupported Upstox product"):
         mapper.map_product("MTF")
+
+
+# Regression: Upstox splits buy/sell qty into day + overnight fields; the
+# mapper must SUM them, not read one. Positions carry no ISIN.
+def test_upstox_position_sums_day_and_overnight(mapper):
+    position = mapper.upstox_to_position(
+        {
+            "trading_symbol": "RELIANCE",
+            "exchange": "NSE",
+            "instrument_token": "NSE_EQ|INE002A01018",
+            "product": "D",
+            "quantity": 5,
+            "day_buy_quantity": 6,
+            "overnight_buy_quantity": 4,  # buy_quantity must be 10, not 6
+            "day_sell_quantity": 3,
+            "overnight_sell_quantity": 2,
+            "buy_price": 1400,
+            "sell_price": 1410,
+        }
+    )
+    assert position.buy_quantity == 10
+    assert position.sell_quantity == 5
+    assert position.product is Product.CNC  # "D" -> CNC
+    assert position.isin is None
+
+
+def test_upstox_option_chain_sorts_and_omits_rho(mapper):
+    chain = mapper.upstox_to_option_chain(
+        [
+            {
+                "strike_price": 24100,
+                "call_options": {
+                    "instrument_key": "NSE_FO|1",
+                    "market_data": {"ltp": 10, "oi": 100, "volume": 5, "bid_price": 9.5, "ask_price": 10.5},
+                    "option_greeks": {"delta": 0.5, "gamma": 0.01, "theta": -1.2, "vega": 3.4, "iv": 12.5},
+                },
+                "put_options": None,
+            },
+            {
+                "strike_price": 24000,
+                "call_options": None,
+                "put_options": {
+                    "instrument_key": "NSE_FO|2",
+                    "market_data": {"ltp": 9, "oi": 80, "volume": 4},
+                    "option_greeks": None,
+                },
+            },
+        ],
+        "NIFTY",
+        date(2026, 7, 30),
+    )
+    assert [s.strike for s in chain.strikes] == [Decimal("24000"), Decimal("24100")]  # sorted
+    ce = chain.strikes[1].call
+    assert ce.option_type is InstrumentType.CE
+    assert ce.greeks is not None and ce.greeks.rho is None  # Upstox greeks omit rho
 
 
 # Regression: Upstox's master `tick_size` is in PAISE. The missing /100 shipped

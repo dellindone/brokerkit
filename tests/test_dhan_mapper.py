@@ -79,6 +79,32 @@ def test_dhan_rejects_unknown_status(mapper):
         mapper.map_status("NOPE")
 
 
+def test_dhan_portfolio_odd_keys_and_no_position_isin(mapper):
+    holding = mapper.dhan_to_holding(
+        {
+            "tradingSymbol": "RELIANCE",
+            "isin": "INE002A01018",
+            "totalQty": 10,  # -> quantity
+            "avgCostPrice": 1400.5,
+            "collateralQty": 4,  # -> pledged_quantity
+            "t1Qty": 2,
+        }
+    )
+    assert holding.quantity == 10
+    assert holding.pledged_quantity == 4
+    assert holding.isin == "INE002A01018"
+
+    position = mapper.dhan_to_position(
+        {
+            "tradingSymbol": "RELIANCE", "exchangeSegment": "NSE_EQ", "productType": "CNC",
+            "netQty": 5, "buyQty": 8, "buyAvg": 1400, "sellQty": 3, "sellAvg": 1410,
+            "realizedProfit": 30,
+        }
+    )
+    assert position.buy_quantity == 8
+    assert position.isin is None  # positions response carries no ISIN
+
+
 def test_dhan_tick_timestamp_is_timezone_aware(mapper, cash_instrument):
     tick = mapper.dhan_to_tick(cash_instrument, {"LTP": "1400.25", "LTT": "09:20:30", "volume": 11})
     assert tick.ltp == Decimal("1400.25")

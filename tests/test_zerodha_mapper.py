@@ -82,6 +82,31 @@ def test_zerodha_rejects_unknown_status(mapper):
         mapper.map_status("TEXTING")
 
 
+def test_zerodha_portfolio_odd_keys_and_no_position_isin(mapper):
+    holding = mapper.kite_to_holding(
+        {
+            "tradingsymbol": "RELIANCE",
+            "isin": "INE002A01018",
+            "quantity": 10,
+            "average_price": 1400.5,
+            "collateral_quantity": 4,  # -> pledged_quantity
+            "t1_quantity": 2,
+        }
+    )
+    assert holding.pledged_quantity == 4
+    assert holding.isin == "INE002A01018"
+
+    position = mapper.kite_to_position(
+        {
+            "tradingsymbol": "RELIANCE", "exchange": "NSE", "product": "CNC",
+            "quantity": 5, "buy_quantity": 8, "buy_price": 1400,
+            "sell_quantity": 3, "sell_price": 1410, "realised": 30,
+        }
+    )
+    assert position.buy_quantity == 8
+    assert position.isin is None  # Kite positions carry no ISIN
+
+
 # Kite's master is already in RUPEES (unlike Angel/Dhan/Upstox) — tick_size and
 # strike must NOT be divided, and the "0" non-option strike becomes None.
 def test_zerodha_master_row_is_already_in_rupees(mapper):

@@ -81,6 +81,31 @@ def test_angel_rejects_unknown_status(mapper):
         mapper.map_status("floating")
 
 
+def test_angel_portfolio_odd_keys_and_no_position_isin(mapper):
+    holding = mapper.angel_to_holding(
+        {
+            "tradingsymbol": "RELIANCE",
+            "isin": "INE002A01018",
+            "quantity": "10",
+            "averageprice": "1400.5",
+            "collateralquantity": "4",  # -> pledged_quantity
+            "t1quantity": "2",
+        }
+    )
+    assert holding.pledged_quantity == 4
+    assert holding.average_price == Decimal("1400.5")
+
+    position = mapper.angel_to_position(
+        {
+            "tradingsymbol": "RELIANCE", "exchange": "NSE", "producttype": "DELIVERY",
+            "netqty": "5", "buyqty": "8", "buyavgprice": "1400",
+            "sellqty": "3", "sellavgprice": "1410", "realised": "30",
+        }
+    )
+    assert position.buy_quantity == 8
+    assert position.isin is None  # positions response carries no ISIN
+
+
 # Regression: Angel's master `strike` AND `tick_size` are both in PAISE (÷100).
 def test_angel_master_row_divides_paise(mapper):
     inst = mapper.parse_master_row(
