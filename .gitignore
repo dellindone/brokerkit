@@ -1,12 +1,13 @@
 *.txt
 *.DS_Store
 *.egg-info
+*.egg
+docs/
 .env
 .venv
 *.pyc
 *.md
 !README.md
-!docs/*.md
 brokerkit_backup*
 instruments.csv
 *.log

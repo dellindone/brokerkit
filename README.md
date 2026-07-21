@@ -121,7 +121,11 @@ pip install -e ./packages/brokerkit-core -e ./packages/brokerkit-zerodha
 
 ```bash
 pip install brokerkit[zerodha]
+pip install brokerkit[zerodha,upstox,dhan]
+pip install brokerkit[all]
 ```
+
+`brokerkit[all]` means **every adapter that can coexist in one resolution** — that is Fyers, Upstox, Dhan, Angel One and Zerodha. Groww is excluded on purpose: including it would make `[all]` fail for everyone, for the upstream reason described above. Install it explicitly with `brokerkit[groww]`, and follow Case 2 if you want it alongside Fyers.
 
 ---
 
