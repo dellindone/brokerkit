@@ -6,6 +6,7 @@ from brokerkit.enums.product import Product
 from brokerkit.enums.validity import Validity
 from brokerkit.enums.order_status import OrderStatus
 from brokerkit.enums.instrument_type import InstrumentType
+from brokerkit.enums.statement_type import StatementType
 
 __all__ = [
     "Exchange",
@@ -16,4 +17,5 @@ __all__ = [
     "Validity",
     "OrderStatus",
     "InstrumentType",
+    "StatementType",
 ]
