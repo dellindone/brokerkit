@@ -13,7 +13,7 @@ authors = [
     { name = "Aditya Vishwakarma", email = "vaditya098@gmail.com" }
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",

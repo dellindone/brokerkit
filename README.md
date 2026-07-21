@@ -24,7 +24,7 @@ Swap `"zerodha"` for `"fyers"` and the rest of that code is unchanged.
 
 ## Status
 
-**Alpha, and honestly so.** The core contract is stable across six adapters, but coverage per broker is limited by real account-state and regulatory walls, not by missing code. Nothing below is aspirational — it reflects what has actually been run against real accounts.
+The core contract is stable across six adapters. What varies is per-broker *coverage*, and where it stops it is almost always an account-state or regulatory wall rather than missing code. Nothing in the table below is aspirational — it reflects what has actually been run against real accounts.
 
 | | Groww | Fyers | Upstox | Dhan | Angel One | Zerodha |
 |---|---|---|---|---|---|---|
@@ -46,36 +46,82 @@ Swap `"zerodha"` for `"fyers"` and the rest of that code is unchanged.
 
 ## Install
 
-Not on PyPI yet. Install from the repo:
+Not on PyPI yet, so install from the repo. Always install `brokerkit-core` plus the adapters you actually want — there is no need to install all six.
 
 ```bash
-git clone https://github.com/vaditya098/brokerkit.git
+git clone https://github.com/dellindone/brokerkit.git
 cd brokerkit
-
-pip install ./packages/brokerkit-core ./packages/brokerkit-zerodha
 ```
 
-Add whichever adapters you need. Once published, this becomes:
+**Pick one of the two cases below.** The only thing that decides which is whether you need Groww *and* Fyers together.
+
+### Case 1 — you do NOT need both Groww and Fyers (almost everyone)
+
+One command, any combination:
+
+```bash
+pip install ./packages/brokerkit-core \
+            ./packages/brokerkit-zerodha \
+            ./packages/brokerkit-angelone
+```
+
+Swap in whichever adapters you want: `brokerkit-groww`, `brokerkit-fyers`, `brokerkit-upstox`, `brokerkit-dhan`, `brokerkit-angelone`, `brokerkit-zerodha`. Just don't list Groww and Fyers in the same command.
+
+Done. `pip check` will be clean.
+
+### Case 2 — you need both Groww and Fyers
+
+These two cannot be resolved together in one `pip install`, so run **three commands in this order**:
+
+```bash
+# 1. everything except Groww
+pip install ./packages/brokerkit-core \
+            ./packages/brokerkit-fyers \
+            ./packages/brokerkit-upstox \
+            ./packages/brokerkit-dhan \
+            ./packages/brokerkit-angelone \
+            ./packages/brokerkit-zerodha
+
+# 2. now add Groww (this pulls aiohttp forward to 3.14.x)
+pip install ./packages/brokerkit-groww
+
+# 3. put aiohttp back where Fyers needs it
+pip install "aiohttp==3.9.3"
+```
+
+Then check it worked:
+
+```bash
+python -c "
+from brokerkit.assembly.factory import _resolve
+for n in ['groww','fyers','upstox','dhan','angelone','zerodha']:
+    print(n, '->', _resolve(n).__name__)
+"
+```
+
+**Expect `pip check` to complain** after Case 2 — it will say growwapi wants `aiohttp>=3.11.18` but you have 3.9.3. That warning is correct and unavoidable; the setup still works (verified end to end: both adapters resolve and both fetch their real instrument masters). Treat it as a deliberate workaround, not a supported configuration.
+
+<details>
+<summary>Why this conflict exists</summary>
+
+It is upstream, not this project. `fyers-apiv3` pins aiohttp **exactly** (`==3.9.3` on the current 3.1.14, `==3.8.4` on older releases), while `growwapi` requires `aiohttp>=3.11.18`. No version of either satisfies both, and listing order makes no difference — both orders were tested and fail identically. In practice both SDKs run fine on 3.9.3, so the pins are stricter than the real need.
+
+Do **not** reach for `pip install --no-deps growwapi`. `--no-deps` also skips growwapi's legitimate dependencies (pandas, nats-py, protobuf), and importing the adapter then fails with `ModuleNotFoundError: No module named 'pandas'`.
+</details>
+
+### Developing on BrokerKit itself
+
+Add `-e` to any of the commands above for an editable install, so source edits take effect without reinstalling:
+
+```bash
+pip install -e ./packages/brokerkit-core -e ./packages/brokerkit-zerodha
+```
+
+### Once published
 
 ```bash
 pip install brokerkit[zerodha]
 ```
-
-### One known dependency conflict
-
-**`brokerkit-groww` and `brokerkit-fyers` cannot be installed in a single pip resolution.** This is upstream, not ours: `fyers-apiv3` pins `aiohttp==3.9.3` exactly, while `growwapi` requires `aiohttp>=3.11.18`. No version combination satisfies both, and the order you list them in makes no difference. Every other combination installs cleanly and passes `pip check`.
-
-In practice both SDKs run fine on aiohttp 3.9.3 — the pins are stricter than the real need — so if you need both, install them in separate steps and then pin aiohttp:
-
-```bash
-pip install ./packages/brokerkit-core ./packages/brokerkit-fyers
-pip install ./packages/brokerkit-groww    # this pulls aiohttp forward
-pip install "aiohttp==3.9.3"              # put it back where fyers wants it
-```
-
-Verified end to end: both adapters resolve and both fetch their real instrument masters. `pip check` will still report the violated pins — that is expected and cosmetic here, but it does mean this environment is unsupported by upstream, so treat it as a workaround rather than a supported setup.
-
-Do **not** try `pip install --no-deps growwapi` for this. `--no-deps` also skips growwapi's legitimate dependencies (pandas, nats-py, protobuf), and importing the adapter then fails on a missing pandas.
 
 ---
 
