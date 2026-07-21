@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 # built an EMPTY wheel that then uninstalled and shadowed the real core.)
 [project]
 name = "brokerkit"
-version = "1.0.1"
+version = "1.0.2"
 description = "Unified async interface over Indian broker APIs (Groww, Fyers, Upstox, Dhan, Angel One, Zerodha)."
 readme = "README.md"
 requires-python = ">=3.10"
