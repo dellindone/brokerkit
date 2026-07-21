@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brokerkit-zerodha"
+version = "0.0.0"
+dependencies = [
+    "brokerkit-core",
+    # Official Zerodha client. PyPI name is `kiteconnect`, import name is
+    # also `kiteconnect` (no mismatch here, unlike smartapi-python ->
+    # SmartApi). The GitHub repo is called pykiteconnect, but that name
+    # does not exist on PyPI — don't be misled by it.
+    "kiteconnect",
+    # Kite has no programmatic login at all, so the daily browser login is
+    # captured by a local Flask server on the redirect_uri (same pattern as
+    # the Fyers/Upstox login helpers).
+    "flask",
+    # Instrument master is a plain public CSV fetched directly.
+    "requests",
+]
