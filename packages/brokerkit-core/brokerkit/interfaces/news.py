@@ -1,3 +1,5 @@
+"""The news provider interface (optional capability)."""
+
 from abc import ABC, abstractmethod
 
 from brokerkit.models.instrument import Instrument
@@ -15,10 +17,13 @@ class NewsProvider(ABC):
     """
 
     @abstractmethod
-    async def get_news(self, instruments: list[Instrument]) -> list[NewsArticle]: ...
+    async def get_news(self, instruments: list[Instrument]) -> list[NewsArticle]:
+        """Return recent news for the given instruments."""
 
     @abstractmethod
-    async def get_news_for_positions(self) -> list[NewsArticle]: ...
+    async def get_news_for_positions(self) -> list[NewsArticle]:
+        """Return recent news for the account\'s open positions, resolved by the broker."""
 
     @abstractmethod
-    async def get_news_for_holdings(self) -> list[NewsArticle]: ...
+    async def get_news_for_holdings(self) -> list[NewsArticle]:
+        """Return recent news for the account\'s holdings, resolved by the broker."""

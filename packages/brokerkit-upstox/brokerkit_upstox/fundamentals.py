@@ -1,3 +1,5 @@
+"""Upstox fundamentals provider."""
+
 import asyncio
 from datetime import datetime
 from decimal import Decimal, InvalidOperation

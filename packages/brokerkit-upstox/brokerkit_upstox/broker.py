@@ -1,3 +1,5 @@
+"""Upstox broker assembly."""
+
 from typing import Any
 
 from upstox_client import Configuration

@@ -1,3 +1,5 @@
+"""Zerodha error translation into core exceptions."""
+
 from contextlib import contextmanager
 from typing import Iterator
 

@@ -1,3 +1,5 @@
+"""Dhan broker assembly."""
+
 import asyncio
 from datetime import datetime
 
@@ -20,6 +22,8 @@ _SANDBOX_BASE_URL = "https://sandbox.dhan.co/v2"
 
 
 class DhanBroker(Broker):
+    """Dhan broker: authenticates and wires up every provider. See
+    :class:`~brokerkit.assembly.broker.Broker`."""
     name = "dhan"
 
     def __init__(

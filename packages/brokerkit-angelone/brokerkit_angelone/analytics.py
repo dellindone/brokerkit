@@ -1,3 +1,5 @@
+"""Angel One analytics extras."""
+
 import asyncio
 from datetime import date
 from typing import Any
@@ -20,6 +22,8 @@ from brokerkit_angelone.errors import angel_errors, check
 
 
 class AngelAnalytics:
+    """Angel One-specific market analytics. Adapter-local: the shapes are the
+    broker\'s raw payloads, since they are not part of the shared contract."""
     def __init__(self, client):
         self._client = client  # shared SmartConnect
 

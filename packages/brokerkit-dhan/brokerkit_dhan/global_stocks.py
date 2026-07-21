@@ -1,3 +1,5 @@
+"""Dhan Global Stocks (US equities) extra."""
+
 import asyncio
 import csv
 import io
@@ -22,6 +24,8 @@ _GLOBAL_CSV_URL = "https://api-global-stocks.dhan.co/api-data/us-stock-scrip-mas
 
 
 class GlobalInstrument(BaseModel):
+    """A US-market instrument (Global Stocks). Adapter-local because core
+    cannot represent fractional quantities, USD prices or US exchanges."""
     security_id: str          # SCRIP_CODE — the id every global order/quote call needs
     symbol: str               # ticker, e.g. "AAPL"
     name: str
@@ -33,6 +37,8 @@ class GlobalInstrument(BaseModel):
 
 
 class GlobalOrder(BaseModel):
+    """A US-market order. Adapter-local; keeps the broker\'s own status
+    vocabulary rather than mapping to core, as the lifecycle differs."""
     order_id: str
     status: str               # raw Dhan status (TRANSIT/PENDING/TRADED/...) — kept raw, no core OrderStatus mapping (different lifecycle)
     trading_symbol: str = ""
@@ -47,6 +53,7 @@ class GlobalOrder(BaseModel):
 
 
 class GlobalHolding(BaseModel):
+    """A US-market holding."""
     trading_symbol: str
     security_id: str = ""
     quantity: Decimal
@@ -57,6 +64,7 @@ class GlobalHolding(BaseModel):
 
 
 class GlobalFundLimit(BaseModel):
+    """Available funds and margin for US trading."""
     available_cash: Decimal | None = None
     settled_cash: Decimal | None = None
     unsettled_cash: Decimal | None = None
@@ -64,6 +72,7 @@ class GlobalFundLimit(BaseModel):
 
 
 class GlobalMarketStatus(BaseModel):
+    """Whether the US market is currently open, with session times."""
     status: str | None = None             # open / closed
     market_open_time: str | None = None
     market_close_time: str | None = None

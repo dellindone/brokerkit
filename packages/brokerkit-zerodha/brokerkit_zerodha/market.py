@@ -1,3 +1,5 @@
+"""Zerodha market-data provider."""
+
 import asyncio
 from datetime import date, datetime
 from decimal import Decimal

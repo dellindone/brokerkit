@@ -1,3 +1,5 @@
+"""Upstox historical-data provider."""
+
 import asyncio
 from datetime import datetime
 

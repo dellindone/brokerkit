@@ -1,3 +1,5 @@
+"""Dhan historical-data provider."""
+
 import asyncio
 from datetime import datetime
 from decimal import Decimal
@@ -40,6 +42,8 @@ def _columns_to_candles(body: dict) -> list[Candle]:
 
 
 class DhanHistoricalData(HistoricalDataProvider):
+    """Dhan historical-data provider. See
+    :class:`~brokerkit.interfaces.historical.HistoricalDataProvider`."""
     def __init__(self, dhan):
         self._dhan = dhan
 

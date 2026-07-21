@@ -1,3 +1,5 @@
+"""Angel One broker assembly."""
+
 import asyncio
 from datetime import datetime
 
@@ -16,6 +18,8 @@ from brokerkit_angelone.streaming import AngelStreaming
 
 
 class AngelBroker(Broker):
+    """Angel One broker: authenticates and wires up every provider. See
+    :class:`~brokerkit.assembly.broker.Broker`."""
     name = "angelone"
 
     def __init__(self, api_key: str, client_code: str, mpin: str, totp_secret: str):

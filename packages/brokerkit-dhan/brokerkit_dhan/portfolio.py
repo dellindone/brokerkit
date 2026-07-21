@@ -1,3 +1,5 @@
+"""Dhan portfolio provider."""
+
 import asyncio
 
 from brokerkit.interfaces.portfolio import PortfolioProvider
@@ -9,6 +11,8 @@ from brokerkit_dhan.mapper import dhan_to_holding, dhan_to_position
 
 
 class DhanPortfolio(PortfolioProvider):
+    """Dhan portfolio provider. See
+    :class:`~brokerkit.interfaces.portfolio.PortfolioProvider`."""
     def __init__(self, dhan):
         self._dhan = dhan
 

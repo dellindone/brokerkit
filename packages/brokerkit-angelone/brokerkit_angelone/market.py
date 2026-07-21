@@ -1,3 +1,5 @@
+"""Angel One market-data provider."""
+
 import asyncio
 from collections import defaultdict
 from datetime import date, datetime
@@ -26,6 +28,8 @@ _BATCH = 50
 
 
 class AngelMarketData(MarketDataProvider):
+    """Angel One market-data provider. See
+    :class:`~brokerkit.interfaces.market.MarketDataProvider`."""
     def __init__(self, client):
         self._client = client  # shared SmartConnect
         # Lazy per-day cache of the raw master, used ONLY by get_option_chain

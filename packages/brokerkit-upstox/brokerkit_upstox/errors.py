@@ -1,3 +1,5 @@
+"""Upstox error translation into core exceptions."""
+
 import json
 from contextlib import contextmanager
 from typing import Iterator

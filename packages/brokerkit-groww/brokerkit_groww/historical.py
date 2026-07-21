@@ -1,3 +1,5 @@
+"""Groww historical-data provider."""
+
 import asyncio
 from datetime import datetime
 
@@ -14,6 +16,8 @@ _FMT = "%Y-%m-%d %H:%M:%S"
 
 
 class GrowwHistorical(HistoricalDataProvider):
+    """Groww historical-data provider. See
+    :class:`~brokerkit.interfaces.historical.HistoricalDataProvider`."""
 
     def __init__(self, client: GrowwAPI) -> None:
         self._client = client

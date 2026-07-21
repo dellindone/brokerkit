@@ -1,3 +1,5 @@
+"""Fyers order provider."""
+
 import asyncio
 from decimal import Decimal
 
@@ -18,6 +20,8 @@ from brokerkit_fyers.mapper import (
 
 
 class FyersOrderProvider(OrderProvider):
+    """Fyers order provider. See
+    :class:`~brokerkit.interfaces.order.OrderProvider`."""
     def __init__(self, client: FyersModel):
         self._client = client
 

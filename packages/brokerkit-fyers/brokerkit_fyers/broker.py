@@ -1,3 +1,5 @@
+"""Fyers broker assembly."""
+
 import asyncio
 from datetime import datetime
 
@@ -16,6 +18,8 @@ from brokerkit_fyers.streaming import FyersStreaming
 
 
 class FyersBroker(Broker):
+    """Fyers broker: authenticates and wires up every provider. See
+    :class:`~brokerkit.assembly.broker.Broker`."""
     name = "fyers"
 
     def __init__(

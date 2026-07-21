@@ -1,3 +1,5 @@
+"""Upstox instrument-master provider."""
+
 import asyncio
 import gzip
 import json

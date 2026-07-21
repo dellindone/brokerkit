@@ -1,3 +1,5 @@
+"""Fyers market-data provider."""
+
 import asyncio
 from datetime import date, datetime, time
 from decimal import Decimal

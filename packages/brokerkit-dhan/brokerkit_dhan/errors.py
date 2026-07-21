@@ -1,3 +1,5 @@
+"""Dhan error translation into core exceptions."""
+
 from typing import Any
 
 from brokerkit.exceptions.auth import AuthenticationError

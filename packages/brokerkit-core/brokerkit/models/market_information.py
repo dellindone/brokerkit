@@ -1,3 +1,13 @@
+"""Market-wide analytics models.
+
+Derivatives analytics (open interest, max pain, put-call ratio), institutional
+flows, ranked screeners and the market calendar, returned by
+:class:`~brokerkit.interfaces.market_information.MarketInformationProvider`.
+
+Not every broker exposes these; this is an optional capability rather than
+part of the shared broker contract.
+"""
+
 from datetime import date, datetime, time
 from decimal import Decimal
 
@@ -5,12 +15,16 @@ from pydantic import BaseModel
 
 
 class OiStrike(BaseModel):
+    """Call and put open interest at one strike."""
+
     strike_price: Decimal
     call_oi: int
     put_oi: int
 
 
 class OpenInterest(BaseModel):
+    """Open-interest distribution across strikes for an expiry."""
+
     total_calls: int
     total_puts: int
     spot_closing_price: Decimal
@@ -19,12 +33,16 @@ class OpenInterest(BaseModel):
 
 
 class ChangeInOiStrike(BaseModel):
+    """Change in call and put open interest at one strike."""
+
     strike_price: Decimal
     call_change_oi: int
     put_change_oi: int
 
 
 class ChangeInOpenInterest(BaseModel):
+    """Change in open interest across strikes for an expiry."""
+
     total_call_change_oi: int
     total_put_change_oi: int
     spot_closing_price: Decimal
@@ -33,12 +51,16 @@ class ChangeInOpenInterest(BaseModel):
 
 
 class MaxPainInsight(BaseModel):
+    """Max-pain reading at one point in the session."""
+
     max_pain: Decimal
     spot_price: Decimal
     time: time
 
 
 class MaxPain(BaseModel):
+    """Max-pain level for an expiry: the strike where option buyers lose most."""
+
     instrument_key: str
     expiry_date: date
     max_pain: Decimal
@@ -47,12 +69,16 @@ class MaxPain(BaseModel):
 
 
 class PcrInsight(BaseModel):
+    """Put-call ratio reading at one point in the session."""
+
     pcr: float
     spot_price: Decimal
     time: time
 
 
 class Pcr(BaseModel):
+    """Put-call ratio for an expiry, a common sentiment gauge."""
+
     instrument_key: str
     expiry_date: date
     pcr: float
@@ -61,6 +87,8 @@ class Pcr(BaseModel):
 
 
 class InstitutionalActivity(BaseModel):
+    """Institutional buying and selling for one period."""
+
     time_stamp: datetime
     buy_amount: Decimal
     sell_amount: Decimal
@@ -77,6 +105,8 @@ class InstitutionalActivity(BaseModel):
 
 
 class SmartlistPriceChange(BaseModel):
+    """Price and its change for a smartlist entry."""
+
     current: Decimal
     close_price: Decimal
     change_abs: Decimal
@@ -84,6 +114,8 @@ class SmartlistPriceChange(BaseModel):
 
 
 class SmartlistMetric(BaseModel):
+    """One ranked metric on a smartlist entry."""
+
     current: Decimal
     previous: Decimal
     change_abs: Decimal
@@ -91,12 +123,16 @@ class SmartlistMetric(BaseModel):
 
 
 class SmartlistEntry(BaseModel):
+    """A single instrument's row in a ranked screener."""
+
     instrument_key: str
     price: SmartlistPriceChange
     metric: SmartlistMetric
 
 
 class Smartlist(BaseModel):
+    """A ranked screener of futures or options instruments."""
+
     asset_type: str
     category: str
     time_stamp: datetime
@@ -108,6 +144,8 @@ class Smartlist(BaseModel):
 
 
 class MtfPrice(BaseModel):
+    """Price detail for a margin-trading-facility entry."""
+
     actual_price: Decimal
     mtf_price: Decimal
     margin_saved: Decimal
@@ -115,12 +153,16 @@ class MtfPrice(BaseModel):
 
 
 class MtfSmartlistEntry(BaseModel):
+    """A single instrument's row in the MTF screener."""
+
     instrument_key: str
     price: MtfPrice
     mtf_percent: float
 
 
 class MtfSmartlist(BaseModel):
+    """A ranked screener of margin-trading-facility instruments."""
+
     asset_type: str
     category: str
     time_stamp: datetime
@@ -132,12 +174,16 @@ class MtfSmartlist(BaseModel):
 
 
 class ExchangeTiming(BaseModel):
+    """Session open and close times for one exchange segment."""
+
     exchange: str
     start_time: datetime
     end_time: datetime
 
 
 class MarketHoliday(BaseModel):
+    """A market holiday, and which exchanges observe it."""
+
     date: date
     description: str
     holiday_type: str
@@ -146,6 +192,8 @@ class MarketHoliday(BaseModel):
 
 
 class MarketStatus(BaseModel):
+    """Current open or closed status of an exchange segment."""
+
     exchange: str
     status: str
     last_updated: datetime

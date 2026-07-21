@@ -1,3 +1,5 @@
+"""Zerodha portfolio provider."""
+
 import asyncio
 
 from brokerkit.interfaces.portfolio import PortfolioProvider
@@ -9,6 +11,8 @@ from brokerkit_zerodha.errors import zerodha_errors
 
 
 class ZerodhaPortfolio(PortfolioProvider):
+    """Zerodha portfolio provider. See
+    :class:`~brokerkit.interfaces.portfolio.PortfolioProvider`."""
     def __init__(self, client):
         self._client = client  # shared KiteConnect
 

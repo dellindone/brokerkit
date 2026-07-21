@@ -1,3 +1,5 @@
+"""Upstox news provider."""
+
 import asyncio
 from typing import Any
 

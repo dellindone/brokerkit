@@ -1,3 +1,5 @@
+"""Upstox market-information provider."""
+
 import asyncio
 from datetime import date, datetime, time as dtime
 from decimal import Decimal

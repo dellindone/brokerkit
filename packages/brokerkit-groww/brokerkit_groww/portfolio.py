@@ -1,3 +1,5 @@
+"""Groww portfolio provider."""
+
 import asyncio
 
 from growwapi import GrowwAPI
@@ -10,6 +12,8 @@ from brokerkit_groww.errors import groww_errors
 from brokerkit_groww.mapper import groww_to_holding, groww_to_position
 
 class GrowwPortfolio(PortfolioProvider):
+    """Groww portfolio provider. See
+    :class:`~brokerkit.interfaces.portfolio.PortfolioProvider`."""
     def __init__(self, client: GrowwAPI) -> None:
         self._client = client
 

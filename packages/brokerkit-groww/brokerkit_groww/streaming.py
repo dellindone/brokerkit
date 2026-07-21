@@ -1,3 +1,5 @@
+"""Groww streaming provider."""
+
 import asyncio
 import inspect
 from typing import Any
@@ -15,6 +17,8 @@ _Key = tuple[str, str, str]  # (exchange, segment, exchange_token)
 
 
 class GrowwStreaming(StreamingProvider):
+    """Groww streaming provider. See
+    :class:`~brokerkit.interfaces.streaming.StreamingProvider`."""
 
     def __init__(self, client: GrowwAPI) -> None:
         self._client = client
@@ -33,7 +37,7 @@ class GrowwStreaming(StreamingProvider):
                 )
         self._loop = asyncio.get_running_loop()
         if self._feed is None:
-            # GrowwFeed ka constructor socket token + websocket kholta hai
+            # GrowwFeed's constructor opens the socket token + websocket
             with groww_errors(StreamingError):
                 self._feed = await asyncio.to_thread(GrowwFeed, self._client)
         for inst in instruments:
@@ -76,7 +80,7 @@ class GrowwStreaming(StreamingProvider):
         }
 
     def _on_update(self, meta: dict[str, Any]) -> None:
-        # NATS ke background thread se aata hai — kaam event loop pe bounce karo
+        # Fires on the SDK's NATS background thread — bounce the work onto the event loop
         if not meta or self._loop is None or self._loop.is_closed():
             return
         key: _Key = (
@@ -85,7 +89,7 @@ class GrowwStreaming(StreamingProvider):
             meta.get("feed_key"),
         )
         if key not in self._callbacks:
-            return  # sirf active subscriptions ke ticks map hote hain
+            return  # only ticks for active subscriptions are mapped
         self._loop.call_soon_threadsafe(self._dispatch, key)
 
     def _dispatch(self, key: _Key) -> None:

@@ -1,3 +1,5 @@
+"""Dhan streaming provider."""
+
 import asyncio
 import inspect
 from typing import Any

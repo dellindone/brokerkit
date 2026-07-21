@@ -1,3 +1,5 @@
+"""Angel One historical-data provider."""
+
 import asyncio
 from datetime import datetime
 from decimal import Decimal
@@ -40,6 +42,8 @@ def _interval(interval_minutes: int) -> str:
 
 
 class AngelHistoricalData(HistoricalDataProvider):
+    """Angel One historical-data provider. See
+    :class:`~brokerkit.interfaces.historical.HistoricalDataProvider`."""
     def __init__(self, client):
         self._client = client  # shared SmartConnect
 

@@ -1,28 +1,41 @@
+"""The streaming provider interface."""
+
 from abc import ABC, abstractmethod
 from typing import Awaitable, Callable, Union
 
 from brokerkit.models.instrument import Instrument
 from brokerkit.models.tick import Tick
 
-# Sync ya async dono callbacks chalte hain
 TickCallback = Callable[[Tick], Union[None, Awaitable[None]]]
+"""A tick handler. May be a plain function or a coroutine function -- the
+adapter awaits it if it returns an awaitable."""
 
 
 class StreamingProvider(ABC):
+    """Subscribes to a broker\'s live market feed.
+
+    Each broker\'s websocket runs on its own event loop or reactor thread;
+    adapters bridge ticks from there onto the caller\'s asyncio loop, so the
+    callback always runs where the caller expects. On brokers that charge for
+    market data, the feed needs the paid data subscription.
+    """
 
     @abstractmethod
     async def subscribe_ltp(
         self, instruments: list[Instrument], callback: TickCallback
     ) -> None:
-        """Har LTP update pe callback(Tick) fire hota hai.
+        """Subscribe to live ticks and deliver each to ``callback``.
 
-        Connection pehli subscribe pe lazily banta hai. Ek instrument pe
-        dobara subscribe karne se uska callback replace ho jaata hai.
+        The connection is opened lazily on the first subscribe. Subscribing
+        to an instrument already subscribed replaces its callback. Raises
+        :class:`~brokerkit.exceptions.streaming.StreamingConnectionError` if
+        the feed cannot be established.
         """
 
     @abstractmethod
-    async def unsubscribe_ltp(self, instruments: list[Instrument]) -> None: ...
+    async def unsubscribe_ltp(self, instruments: list[Instrument]) -> None:
+        """Stop delivering ticks for the given instruments."""
 
     @abstractmethod
     async def close(self) -> None:
-        """Saari subscriptions hata ke connection chhod do."""
+        """Drop every subscription and close the connection."""

@@ -1,3 +1,5 @@
+"""Groww market-data provider."""
+
 import asyncio
 from datetime import date
 from decimal import Decimal
@@ -17,6 +19,8 @@ _BATCH = 50
 
 
 class GrowwMarketData(MarketDataProvider):
+    """Groww market-data provider. See
+    :class:`~brokerkit.interfaces.market.MarketDataProvider`."""
 
     def __init__(self, client: GrowwAPI) -> None:
         self._client = client

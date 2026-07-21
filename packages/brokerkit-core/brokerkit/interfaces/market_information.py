@@ -1,3 +1,5 @@
+"""The market-information provider interface (optional capability)."""
+
 from abc import ABC, abstractmethod
 from datetime import date
 
@@ -31,22 +33,26 @@ class MarketInformationProvider(ABC):
     """
 
     @abstractmethod
-    async def get_oi(self, underlying: Instrument, expiry: str, for_date: date) -> OpenInterest: ...
+    async def get_oi(self, underlying: Instrument, expiry: str, for_date: date) -> OpenInterest:
+        """Return the open-interest distribution across strikes for an expiry."""
 
     @abstractmethod
     async def get_change_in_oi(
         self, underlying: Instrument, expiry: str, for_date: date, lookback_days: int
-    ) -> ChangeInOpenInterest: ...
+    ) -> ChangeInOpenInterest:
+        """Return the change in open interest across strikes over a lookback window."""
 
     @abstractmethod
     async def get_max_pain(
         self, underlying: Instrument, expiry: str, for_date: date, bucket_interval_minutes: int
-    ) -> MaxPain: ...
+    ) -> MaxPain:
+        """Return the max-pain level for an expiry."""
 
     @abstractmethod
     async def get_pcr(
         self, underlying: Instrument, expiry: str, for_date: date, bucket_interval_minutes: int
-    ) -> Pcr: ...
+    ) -> Pcr:
+        """Return the put-call ratio for an expiry."""
 
     @abstractmethod
     async def get_fii_activity(
@@ -69,21 +75,27 @@ class MarketInformationProvider(ABC):
     @abstractmethod
     async def get_futures_smartlist(
         self, asset_type: str, category: str, page_number: int = 1, page_size: int = 50
-    ) -> Smartlist: ...
+    ) -> Smartlist:
+        """Return a ranked screener of futures instruments."""
 
     @abstractmethod
     async def get_options_smartlist(
         self, asset_type: str, category: str, page_number: int = 1, page_size: int = 50
-    ) -> Smartlist: ...
+    ) -> Smartlist:
+        """Return a ranked screener of options instruments."""
 
     @abstractmethod
-    async def get_mtf_smartlist(self, page_number: int = 1, page_size: int = 50) -> MtfSmartlist: ...
+    async def get_mtf_smartlist(self, page_number: int = 1, page_size: int = 50) -> MtfSmartlist:
+        """Return a ranked screener of margin-trading-facility instruments."""
 
     @abstractmethod
-    async def get_market_holidays(self) -> list[MarketHoliday]: ...
+    async def get_market_holidays(self) -> list[MarketHoliday]:
+        """Return the market holidays for the year."""
 
     @abstractmethod
-    async def get_exchange_timings(self, for_date: date) -> list[ExchangeTiming]: ...
+    async def get_exchange_timings(self, for_date: date) -> list[ExchangeTiming]:
+        """Return session open and close times per exchange for a date."""
 
     @abstractmethod
-    async def get_market_status(self, exchange: str) -> MarketStatus: ...
+    async def get_market_status(self, exchange: str) -> MarketStatus:
+        """Return whether an exchange is currently open."""

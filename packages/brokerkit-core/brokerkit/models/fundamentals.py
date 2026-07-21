@@ -1,3 +1,13 @@
+"""Company fundamentals models.
+
+Structured financial data -- profiles, statements, ratios, corporate actions
+and peers -- returned by
+:class:`~brokerkit.interfaces.fundamentals.FundamentalsProvider`.
+
+Not every broker exposes fundamentals; this is an optional capability rather
+than part of the shared broker contract.
+"""
+
 from datetime import date
 from decimal import Decimal
 
@@ -5,12 +15,16 @@ from pydantic import BaseModel
 
 
 class MarketCapAmount(BaseModel):
+    """A market-capitalisation figure with its unit and display form."""
+
     value: Decimal
     unit: str
     formatted: str
 
 
 class CompanyProfile(BaseModel):
+    """Business description and sector positioning for a company."""
+
     company_profile: str
     sector: str
     sector_market_cap_inr: MarketCapAmount
@@ -18,6 +32,8 @@ class CompanyProfile(BaseModel):
 
 
 class FinancialPeriodValue(BaseModel):
+    """One reporting period's value for a financial line item."""
+
     period: str
     value: Decimal
 
@@ -36,12 +52,16 @@ class FinancialLineItem(BaseModel):
 
 
 class BalanceSheetSummary(BaseModel):
+    """Headline totals for one balance-sheet period."""
+
     total_asset: Decimal
     total_liability: Decimal
     period: str
 
 
 class BalanceSheet(BaseModel):
+    """Balance sheet across reporting periods, with optional full breakdown."""
+
     statement_type: str
     time_period: str
     units_in: str
@@ -50,6 +70,8 @@ class BalanceSheet(BaseModel):
 
 
 class CashFlow(BaseModel):
+    """Cash-flow statement across reporting periods."""
+
     statement_type: str
     time_period: str
     units_in: str
@@ -58,6 +80,8 @@ class CashFlow(BaseModel):
 
 
 class IncomeStatement(BaseModel):
+    """Income statement across reporting periods."""
+
     statement_type: str
     time_period: str
     units_in: str
@@ -66,17 +90,23 @@ class IncomeStatement(BaseModel):
 
 
 class KeyRatio(BaseModel):
+    """One financial ratio, with the sector figure for comparison."""
+
     name: str
     company_value: Decimal | None = None
     sector_value: Decimal | None = None
 
 
 class CorporateActionEvent(BaseModel):
+    """A single detail line attached to a corporate action."""
+
     name: str
     value: str
 
 
 class CorporateAction(BaseModel):
+    """A dividend, split, bonus or similar company event."""
+
     name: str
     expiry_date: date | None = None
     amount: Decimal | None = None
@@ -85,6 +115,8 @@ class CorporateAction(BaseModel):
 
 
 class Competitor(BaseModel):
+    """A peer company in the same sector."""
+
     company_profile: str
     sector: str
     sector_market_cap_inr: MarketCapAmount

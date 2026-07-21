@@ -1,3 +1,5 @@
+"""Fyers instrument-master provider."""
+
 import asyncio
 import csv
 import io

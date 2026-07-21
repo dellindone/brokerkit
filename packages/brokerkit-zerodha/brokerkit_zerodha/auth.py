@@ -1,3 +1,5 @@
+"""Zerodha authentication."""
+
 import asyncio
 from datetime import time
 

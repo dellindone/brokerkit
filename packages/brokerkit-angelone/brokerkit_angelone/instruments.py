@@ -1,3 +1,5 @@
+"""Angel One instrument-master provider."""
+
 import asyncio
 from typing import Any
 

@@ -1,3 +1,5 @@
+"""Groww error translation into core exceptions."""
+
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -18,7 +20,7 @@ from brokerkit.exceptions.streaming import (
     StreamingConnectionError,
 )
 
-# Groww exception -> core exception (subclass order matters: specific pehle)
+# Groww exception -> core exception (subclass order matters: most specific first)
 _MAP: list[tuple[type[BaseGrowwException], type[BrokerKitError]]] = [
     (GrowwAPIAuthenticationException, AuthenticationError),
     (GrowwAPIAuthorisationException, AuthenticationError),
@@ -30,10 +32,12 @@ _MAP: list[tuple[type[BaseGrowwException], type[BrokerKitError]]] = [
 
 @contextmanager
 def groww_errors(default: type[BrokerKitError] = BrokerKitError) -> Iterator[None]:
-    """SDK calls ko wrap karo; growwapi exceptions core exceptions ban jaati hain.
+    """Wrap SDK calls, translating growwapi exceptions into core ones.
 
-    `default`: jo Groww error _MAP mein nahi hai wo is core type mein jayega —
-    caller apna domain batata hai (e.g. orders provider `OrderError` pass karega).
+    A Groww exception listed in ``_MAP`` becomes its mapped core type;
+    anything else becomes ``default``, which the caller sets to its own domain
+    error (the order provider passes
+    :class:`~brokerkit.exceptions.order.OrderError`, for example).
     """
     try:
         yield

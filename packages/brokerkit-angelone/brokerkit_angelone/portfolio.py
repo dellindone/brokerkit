@@ -1,3 +1,5 @@
+"""Angel One portfolio provider."""
+
 import asyncio
 
 from brokerkit.interfaces.portfolio import PortfolioProvider
@@ -9,6 +11,8 @@ from brokerkit_angelone.mapper import angel_to_holding, angel_to_position
 
 
 class AngelPortfolio(PortfolioProvider):
+    """Angel One portfolio provider. See
+    :class:`~brokerkit.interfaces.portfolio.PortfolioProvider`."""
     def __init__(self, client):
         self._client = client  # shared SmartConnect
 

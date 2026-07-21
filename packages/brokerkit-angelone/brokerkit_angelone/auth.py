@@ -1,3 +1,5 @@
+"""Angel One authentication."""
+
 import asyncio
 import base64
 import binascii

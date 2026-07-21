@@ -1,3 +1,5 @@
+"""Groww authentication."""
+
 import asyncio, pyotp
 from datetime import time
 from growwapi import GrowwAPI
@@ -10,6 +12,8 @@ from brokerkit.utils.datetime import next_occurrence
 TOKEN_EXPIRY_TIME = time(6, 0)
 
 class GrowwAuth(AuthProvider):
+    """Groww authentication provider. See
+    :class:`~brokerkit.interfaces.auth.AuthProvider`."""
     def __init__(self, totp_key: str, totp_secret: str):
         if not totp_key or not totp_secret:
             raise AuthenticationError("totp_key and totp_secret are required")

@@ -1,3 +1,5 @@
+"""Groww instrument-master provider."""
+
 import asyncio
 from growwapi import GrowwAPI
 
@@ -6,6 +8,8 @@ from brokerkit.interfaces.instrument import InstrumentProvider
 from brokerkit.models.instrument import Instrument
 
 class GrowwInstruments(InstrumentProvider):
+    """Groww instrument-master provider. See
+    :class:`~brokerkit.interfaces.instrument.InstrumentProvider`."""
     def __init__(self, client: GrowwAPI):
         self._client = client
 

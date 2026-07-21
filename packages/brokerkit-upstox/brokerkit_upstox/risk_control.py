@@ -1,3 +1,5 @@
+"""Upstox risk-control extra: kill switch and P&L auto-exit."""
+
 import asyncio
 
 from pydantic import BaseModel
@@ -26,12 +28,15 @@ _VALID_ACTIONS = {"ENABLE", "DISABLE"}
 
 
 class KillSwitchSegment(BaseModel):
+    """A market segment the per-segment kill switch can target."""
     segment: str
     segment_status: str | None = None       # account-level (independent of kill switch)
     kill_switch_enabled: bool | None = None  # True = trading blocked in this segment
 
 
 class UpstoxRiskControl:
+    """Upstox risk controls: the per-segment kill switch. Adapter-local; unlike
+    Dhan's it is scoped per market segment, and Upstox has no P&L auto-exit."""
     def __init__(self, auth: AuthProvider, configuration: Configuration):
         self._auth = auth
         self._configuration = configuration

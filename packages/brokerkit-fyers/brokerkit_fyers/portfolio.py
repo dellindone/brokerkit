@@ -1,3 +1,5 @@
+"""Fyers portfolio provider."""
+
 import asyncio
 
 from fyers_apiv3.fyersModel import FyersModel
@@ -11,6 +13,8 @@ from brokerkit_fyers.mapper import fyers_to_holding, fyers_to_position
 
 
 class FyersPortfolio(PortfolioProvider):
+    """Fyers portfolio provider. See
+    :class:`~brokerkit.interfaces.portfolio.PortfolioProvider`."""
     def __init__(self, client: FyersModel) -> None:
         self._client = client
 

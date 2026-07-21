@@ -1,3 +1,5 @@
+"""Angel One response-to-model mapping."""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any

@@ -1,3 +1,5 @@
+"""Dhan risk-control extra: kill switch and P&L auto-exit."""
+
 import asyncio
 from decimal import Decimal
 from typing import Any
@@ -12,10 +14,12 @@ from brokerkit_dhan.errors import check
 
 
 class KillSwitchStatus(BaseModel):
+    """Current state of the account-wide kill switch."""
     status: str          # "ACTIVATE" / "DEACTIVATE" (or the message on a set call)
 
 
 class PnlExitConfig(BaseModel):
+    """P&L auto-exit thresholds: square off everything past a profit or loss."""
     status: str | None = None            # ACTIVE / INACTIVE
     profit: Decimal | None = None
     loss: Decimal | None = None
@@ -28,6 +32,8 @@ def _d(v: Any) -> Decimal | None:
 
 
 class DhanRiskControl:
+    """Dhan risk controls: the account-wide kill switch and P&L auto-exit.
+    Adapter-local; no core equivalent exists."""
     def __init__(self, dhan):
         self._dhan = dhan
 

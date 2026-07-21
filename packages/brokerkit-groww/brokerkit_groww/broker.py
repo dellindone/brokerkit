@@ -1,3 +1,5 @@
+"""Groww broker assembly."""
+
 import asyncio
 from datetime import datetime
 
@@ -15,6 +17,8 @@ from brokerkit_groww.historical import GrowwHistorical
 from brokerkit_groww.streaming import GrowwStreaming
 
 class GrowwBroker(Broker):
+    """Groww broker: authenticates and wires up every provider. See
+    :class:`~brokerkit.assembly.broker.Broker`."""
     name = "groww"
 
     def __init__(self, totp_key: str, totp_secret: str):

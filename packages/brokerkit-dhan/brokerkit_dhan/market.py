@@ -1,3 +1,5 @@
+"""Dhan market-data provider."""
+
 import asyncio
 from collections import defaultdict
 from datetime import date
@@ -44,6 +46,8 @@ def _ohlc_from(node: dict[str, Any]) -> Ohlc:
 
 
 class DhanMarketData(MarketDataProvider):
+    """Dhan market-data provider. See
+    :class:`~brokerkit.interfaces.market.MarketDataProvider`."""
     def __init__(self, dhan):
         self._dhan = dhan
 

@@ -1,3 +1,5 @@
+"""Groww order provider."""
+
 import asyncio
 from growwapi import GrowwAPI
 from decimal import Decimal
@@ -15,6 +17,8 @@ from brokerkit_groww.mapper import (
 )
 
 class GrowwOrderProvider(OrderProvider):
+    """Groww order provider. See
+    :class:`~brokerkit.interfaces.order.OrderProvider`."""
     def __init__(self, client: GrowwAPI):
         self._client = client
 

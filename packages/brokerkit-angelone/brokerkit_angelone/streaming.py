@@ -1,3 +1,5 @@
+"""Angel One streaming provider."""
+
 import asyncio
 import inspect
 import threading

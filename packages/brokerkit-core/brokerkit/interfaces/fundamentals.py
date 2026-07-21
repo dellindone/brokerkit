@@ -1,3 +1,5 @@
+"""The fundamentals provider interface (optional capability)."""
+
 from abc import ABC, abstractmethod
 
 from brokerkit.enums import StatementType
@@ -26,7 +28,8 @@ class FundamentalsProvider(ABC):
     """
 
     @abstractmethod
-    async def get_company_profile(self, instrument: Instrument) -> CompanyProfile: ...
+    async def get_company_profile(self, instrument: Instrument) -> CompanyProfile:
+        """Return the company\'s business profile and sector positioning."""
 
     @abstractmethod
     async def get_balance_sheet(
@@ -34,7 +37,8 @@ class FundamentalsProvider(ABC):
         instrument: Instrument,
         statement_type: StatementType = StatementType.CONSOLIDATED,
         include_full_statement: bool = False,
-    ) -> BalanceSheet: ...
+    ) -> BalanceSheet:
+        """Return the balance sheet across reporting periods."""
 
     @abstractmethod
     async def get_cash_flow(
@@ -42,7 +46,8 @@ class FundamentalsProvider(ABC):
         instrument: Instrument,
         statement_type: StatementType = StatementType.CONSOLIDATED,
         include_full_statement: bool = False,
-    ) -> CashFlow: ...
+    ) -> CashFlow:
+        """Return the cash-flow statement across reporting periods."""
 
     @abstractmethod
     async def get_income_statement(
@@ -50,16 +55,21 @@ class FundamentalsProvider(ABC):
         instrument: Instrument,
         statement_type: StatementType = StatementType.CONSOLIDATED,
         include_full_statement: bool = False,
-    ) -> IncomeStatement: ...
+    ) -> IncomeStatement:
+        """Return the income statement across reporting periods."""
 
     @abstractmethod
-    async def get_share_holdings(self, instrument: Instrument) -> list[FinancialLineItem]: ...
+    async def get_share_holdings(self, instrument: Instrument) -> list[FinancialLineItem]:
+        """Return the shareholding pattern by category over time."""
 
     @abstractmethod
-    async def get_key_ratios(self, instrument: Instrument) -> list[KeyRatio]: ...
+    async def get_key_ratios(self, instrument: Instrument) -> list[KeyRatio]:
+        """Return key financial ratios, each with its sector figure."""
 
     @abstractmethod
-    async def get_corporate_actions(self, instrument: Instrument) -> list[CorporateAction]: ...
+    async def get_corporate_actions(self, instrument: Instrument) -> list[CorporateAction]:
+        """Return dividends, splits, bonuses and similar events."""
 
     @abstractmethod
-    async def get_competitors(self, instrument: Instrument) -> list[Competitor]: ...
+    async def get_competitors(self, instrument: Instrument) -> list[Competitor]:
+        """Return peer companies in the same sector."""
