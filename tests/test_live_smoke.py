@@ -74,13 +74,20 @@ async def _smoke(adapter: str, config: dict[str, str]) -> None:
         assert instruments, f"{adapter}: instrument master came back empty"
 
         # Portfolio + orders need auth and can be blocked (subscription /
-        # static-IP walls). Exercise them but never fail the tier on a wall.
-        for label, call in (
-            ("portfolio.holdings", broker.portfolio.holdings),
-            ("orders.list_orders", broker.orders.list_orders),
+        # static-IP walls) or, when the config only carries a data token,
+        # not wired onto the broker at all (Upstox with an analytics token
+        # only — accessing .portfolio/.orders then AttributeErrors by design).
+        # Exercise them but never fail the tier on a wall.
+        for label, provider_name, method_name in (
+            ("portfolio.holdings", "portfolio", "holdings"),
+            ("orders.list_orders", "orders", "list_orders"),
         ):
+            provider = getattr(broker, provider_name, None)
+            if provider is None:
+                print(f"{adapter} {label}: provider not wired (config lacks its auth)")
+                continue
             try:
-                result = await call()
+                result = await getattr(provider, method_name)()
                 print(f"{adapter} {label}: {len(result)} rows")
             except BrokerKitError as exc:
                 print(f"{adapter} {label}: blocked ({exc})")
