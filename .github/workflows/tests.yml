@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Two dependency sets, because growwapi (aiohttp>=3.11.18) and fyers-apiv3
+# (aiohttp==3.9.3) can't be resolved into one environment. Every other broker
+# SDK is installed in both sets, so the two jobs together cover all six
+# adapters fully: groww's package-import tests run in the groww set, fyers's in
+# the fyers set, and each adapter's contract/type-hint tests skip cleanly in
+# the set that lacks its SDK (import_adapter -> pytest.skip). The SDK-free
+# mapper tiers run everywhere. Angel One's SmartApi is not pip-installed at all
+# — conftest stubs it (its undeclared deps make it flaky, and the pure tests
+# never call the real SDK).
+jobs:
+  test:
+    name: py${{ matrix.python-version }} · ${{ matrix.deps }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
+        deps: [fyers-set, groww-set]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test tooling and shared runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pydantic requests pyotp flask
+
+      - name: Install broker SDKs (fyers set — everything except growwapi)
+        if: matrix.deps == 'fyers-set'
+        run: pip install fyers-apiv3 upstox-python-sdk "dhanhq==2.3.0rc1" kiteconnect
+
+      - name: Install broker SDKs (groww set — everything except fyers-apiv3)
+        if: matrix.deps == 'groww-set'
+        run: pip install growwapi upstox-python-sdk "dhanhq==2.3.0rc1" kiteconnect
+
+      # The live tier is deselected: it needs real broker credentials and is
+      # never part of CI green (it skips per-adapter without them anyway).
+      - name: Run tests (pure + mapper + contract + type-hint tiers)
+        run: pytest -q -m "not live"
