@@ -9,6 +9,7 @@ class Ohlc(BaseModel):
     high: Decimal
     low: Decimal
     close: Decimal
+    volume: int | None = None
 
 
 class DepthLevel(BaseModel):

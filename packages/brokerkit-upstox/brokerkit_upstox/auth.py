@@ -27,6 +27,10 @@ TOKEN_EXPIRY_TIME = dtime(3, 30)
 # the real deadline rather than trust the exact boundary.
 _ANALYTICS_TOKEN_VALIDITY = timedelta(days=360)
 
+# 30-day validity per Upstox's Sandbox docs; same margin-before-deadline
+# reasoning as the Analytics Token above.
+_SANDBOX_TOKEN_VALIDITY = timedelta(days=27)
+
 
 class UpstoxAnalyticsAuth(AuthProvider):
     """Wraps a dashboard-generated Analytics Token (Upstox Developer Apps
@@ -41,6 +45,29 @@ class UpstoxAnalyticsAuth(AuthProvider):
             raise AuthenticationError("analytics_token is required")
         self._token = AuthToken(
             token=analytics_token, expires_at=datetime.now(IST) + _ANALYTICS_TOKEN_VALIDITY
+        )
+
+    async def login(self) -> AuthToken:
+        return self._token
+
+
+class UpstoxSandboxAuth(AuthProvider):
+    """Wraps a dashboard-generated Sandbox token (Upstox Developer Apps
+    page, dedicated sandbox app — only one per user, `Generate` button, no
+    browser login flow, same mechanics as `UpstoxAnalyticsAuth`) — static,
+    30-day, order-writes-only. Verified from the SDK's own
+    `Configuration(sandbox=True)`/`sandbox_urls`: sandbox mode allows
+    *only* `place`/`modify`/`cancel`/`multi-place` order paths (v2 and
+    v3) — no order reads, no portfolio, no market data. The SDK itself
+    raises `ValueError` client-side for anything outside that allowlist,
+    before even hitting the network.
+    """
+
+    def __init__(self, sandbox_token: str):
+        if not sandbox_token:
+            raise AuthenticationError("sandbox_token is required")
+        self._token = AuthToken(
+            token=sandbox_token, expires_at=datetime.now(IST) + _SANDBOX_TOKEN_VALIDITY
         )
 
     async def login(self) -> AuthToken:

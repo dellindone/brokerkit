@@ -201,10 +201,17 @@ def upstox_to_position(data: dict[str, Any]) -> Position:
 
 
 def upstox_to_ohlc(v: dict[str, Any]) -> Ohlc:
-    """`v` = one entry's "live_ohlc" object from /v3/market-quote/ohlc —
-    "prev_ohlc" (previous session) is deliberately not used here; core's
-    Ohlc has no room for two sessions and get_ohlc's contract (matching
-    Groww/Fyers) is "today's OHLC so far".
+    """`v` = one entry's "live_ohlc" object from /v3/market-quote/ohlc, or
+    (reused for `Tick.minute_ohlc`) one "I1" entry from the websocket
+    feed's `marketOHLC.ohlc` list. "prev_ohlc" (previous session) is
+    deliberately not used here; core's Ohlc has no room for two sessions
+    and get_ohlc's contract (matching Groww/Fyers) is "today's OHLC so
+    far". `vol` only exists on the websocket-feed shape (confirmed from
+    MarketDataFeedV3.proto's OHLC message: interval/open/high/low/close/
+    vol/ts) — the REST live_ohlc object has no such key, so `volume`
+    correctly stays None there; protobuf int64 fields arrive as JSON
+    strings after MessageToDict (same as `ltt` elsewhere), hence the
+    explicit `int(...)` cast.
     """
     z = Decimal("0")
     return Ohlc(
@@ -212,6 +219,7 @@ def upstox_to_ohlc(v: dict[str, Any]) -> Ohlc:
         high=_decimal(v.get("high")) or z,
         low=_decimal(v.get("low")) or z,
         close=_decimal(v.get("close")) or z,
+        volume=int(v["vol"]) if v.get("vol") is not None else None,
     )
 
 

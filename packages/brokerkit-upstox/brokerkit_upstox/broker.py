@@ -5,7 +5,7 @@ from upstox_client import Configuration
 from brokerkit.assembly.broker import Broker
 from brokerkit.exceptions import AuthenticationError
 
-from brokerkit_upstox.auth import UpstoxAnalyticsAuth, UpstoxOAuth
+from brokerkit_upstox.auth import UpstoxAnalyticsAuth, UpstoxOAuth, UpstoxSandboxAuth
 from brokerkit_upstox.charges import UpstoxCharges
 from brokerkit_upstox.fundamentals import UpstoxFundamentals
 from brokerkit_upstox.historical import UpstoxHistorical
@@ -44,6 +44,18 @@ class UpstoxBroker(Broker):
     browser flow only fires lazily, the first time something that actually
     needs it is called (via AuthProvider.get_token()'s inherited
     check-then-login behavior).
+
+    `sandbox_token` (dashboard-generated, Upstox Developer Apps' dedicated
+    sandbox app, 30-day, no browser login) is a fourth, independent axis —
+    wires `self.sandbox_orders`, deliberately a *separate* attribute from
+    `self.orders` rather than merged into it: this is a trading framework,
+    and `broker.orders.place_order()` must always mean a real production
+    order, never silently rerouted to sandbox depending on what credentials
+    happened to be passed. Only `place_order` is real there — Upstox's
+    sandbox has no order-read endpoint at all (verified from the SDK's own
+    `sandbox_urls` allowlist), so `sandbox_orders.get_order`/`list_orders`
+    raise immediately, and `modify`/`cancel` (which call `get_order`
+    internally to build a complete `Order` return value) fail the same way.
     """
 
     name = "upstox"
@@ -55,13 +67,14 @@ class UpstoxBroker(Broker):
         client_secret: str | None = None,
         redirect_uri: str | None = None,
         access_token: str | None = None,
+        sandbox_token: str | None = None,
     ):
         has_oauth_creds = bool(client_id and client_secret and redirect_uri)
         has_oauth = has_oauth_creds or bool(access_token)
-        if not analytics_token and not has_oauth:
+        if not analytics_token and not has_oauth and not sandbox_token:
             raise AuthenticationError(
                 "UpstoxBroker needs analytics_token and/or access_token and/or "
-                "(client_id, client_secret, redirect_uri)"
+                "(client_id, client_secret, redirect_uri) and/or sandbox_token"
             )
         oauth = (
             UpstoxOAuth(client_id, client_secret, redirect_uri, access_token=access_token)
@@ -77,12 +90,30 @@ class UpstoxBroker(Broker):
         self.charges = UpstoxCharges(data_auth, data_configuration)
         self.fundamentals = UpstoxFundamentals(data_auth, data_configuration)
         self.news = UpstoxNews(data_auth, data_configuration)
-        self.streaming = UpstoxStreaming(data_configuration)
+        self.streaming = UpstoxStreaming(data_auth, data_configuration)
 
         if oauth is not None:
             write_configuration = Configuration()
             self.orders = UpstoxOrderProvider(oauth, write_configuration)
             self.portfolio = UpstoxPortfolio(oauth, write_configuration)
+
+        if sandbox_token is not None:
+            # Real SDK gotcha, verified from source (`configuration.py`'s
+            # `TypeWithDefault` metaclass): `Configuration` is a
+            # process-wide singleton — the *first* `Configuration(...)`
+            # call in the process wins permanently (`cls._default`), and
+            # every later call, regardless of its own args, just returns
+            # `copy.copy(cls._default)` — silently ignoring `sandbox=True`
+            # here since `data_configuration = Configuration()` above
+            # already ran first. Set the sandbox fields by hand on the
+            # returned copy instead of trusting the constructor arg.
+            sandbox_configuration = Configuration(sandbox=True)
+            sandbox_configuration.sandbox = True
+            sandbox_configuration.host = "https://api-sandbox.upstox.com"
+            sandbox_configuration.order_host = "https://api-sandbox.upstox.com"
+            self.sandbox_orders = UpstoxOrderProvider(
+                UpstoxSandboxAuth(sandbox_token), sandbox_configuration, sandbox=True
+            )
 
     @classmethod
     async def create(cls, **config: Any) -> "UpstoxBroker":

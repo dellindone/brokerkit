@@ -4,6 +4,8 @@ from typing import Any
 
 from upstox_client import ApiClient, Configuration, MarketDataStreamerV3
 
+from brokerkit.exceptions.streaming import StreamingConnectionError
+from brokerkit.interfaces.auth import AuthProvider
 from brokerkit.interfaces.streaming import StreamingProvider, TickCallback
 from brokerkit.models.instrument import Instrument
 
@@ -37,11 +39,13 @@ class UpstoxStreaming(StreamingProvider):
     `open_interest` stay `0`/`None` for those specifically, not a bug.
     """
 
-    def __init__(self, configuration: Configuration) -> None:
+    def __init__(self, auth: AuthProvider, configuration: Configuration) -> None:
+        self._auth = auth
         self._configuration = configuration
         self._streamer: MarketDataStreamerV3 | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._ready: asyncio.Event | None = None
+        self._connect_error: Any = None
         self._callbacks: dict[str, TickCallback] = {}
         self._instruments: dict[str, Instrument] = {}
         self.last_error: Any = None
@@ -49,13 +53,20 @@ class UpstoxStreaming(StreamingProvider):
     async def subscribe_ltp(self, instruments: list[Instrument], callback: TickCallback) -> None:
         self._loop = asyncio.get_running_loop()
         if self._streamer is None:
+            token = await self._auth.get_token()
+            self._configuration.access_token = token.token
             self._ready = asyncio.Event()
+            self._connect_error = None
             self._streamer = MarketDataStreamerV3(ApiClient(self._configuration))
             self._streamer.on("open", self._on_open)
             self._streamer.on("message", self._on_message)
             self._streamer.on("error", self._on_error)
             await asyncio.to_thread(self._streamer.connect)
             await self._ready.wait()
+            if self._connect_error is not None:
+                error, self._connect_error = self._connect_error, None
+                self._streamer = None
+                raise StreamingConnectionError(f"Upstox websocket failed to connect: {error}")
 
         keys = [upstox_key(i) for i in instruments]
         for inst, key in zip(instruments, keys):
@@ -133,3 +144,10 @@ class UpstoxStreaming(StreamingProvider):
         # StreamingProvider has no error callback of its own (matches
         # Groww/Fyers) — stash it for introspection instead of discarding it.
         self.last_error = message
+        # If this fires before "open" ever did, subscribe_ltp is still
+        # blocked on `_ready.wait()` — without this, a connection failure
+        # (bad token, network issue, etc.) hangs forever instead of
+        # surfacing an error, since only _on_open used to unblock it.
+        if self._loop is not None and self._ready is not None and not self._ready.is_set():
+            self._connect_error = message
+            self._loop.call_soon_threadsafe(self._ready.set)

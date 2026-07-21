@@ -1,8 +1,9 @@
 import asyncio
 from decimal import Decimal
 
+from pydantic import BaseModel
 from upstox_client import ApiClient, Configuration, OrderApi, OrderApiV3
-from upstox_client.models import ModifyOrderRequest, PlaceOrderV3Request
+from upstox_client.models import ModifyOrderRequest, MultiOrderRequest, PlaceOrderV3Request
 
 from brokerkit.enums import OrderType, Segment
 from brokerkit.exceptions.order import OrderError
@@ -21,6 +22,22 @@ from brokerkit_upstox.mapper import (
 _API_VERSION = "2.0"
 
 
+class MultiOrderResult(BaseModel):
+    """One entry's outcome from `place_multi_order` — Upstox's own response
+    splits successes (`data: list[MultiOrderData]`) and failures
+    (`errors: list[MultiOrderError]`) into two separate lists, each only
+    carrying `correlation_id` to tie back to the request; this re-merges
+    them into one result per input request, in input order, so the caller
+    doesn't have to do that matching themselves. Upstox-only — no
+    equivalent concept for Groww/Fyers, so this stays adapter-local
+    instead of a core model.
+    """
+
+    correlation_id: str
+    order_id: str | None = None
+    error: str | None = None
+
+
 class UpstoxOrderProvider(OrderProvider):
     """Needs the OAuth (not Analytics) token — Upstox's Analytics Token is
     read-only and can't place/modify/cancel. Writes use `OrderApiV3`
@@ -30,11 +47,28 @@ class UpstoxOrderProvider(OrderProvider):
     api_version needed either, despite most `OrderApi` methods requiring
     one), while `get_order_details` (misleadingly named) returns order
     *history*, not a snapshot — not used here.
+
+    `sandbox=True` (see `UpstoxSandboxAuth`) backs this with a sandbox
+    `Configuration` instead — but only `place_order`/`place_multi_order`
+    actually work there. Verified from the SDK's `sandbox_urls` allowlist:
+    no order-read path is sandbox-supported at all, and `modify`/`cancel`'s
+    own core `Order` return value needs fields (trading_symbol/exchange/
+    transaction_type/product/...) that neither their own call signature
+    nor a sandbox read-back can supply — fabricating them would be a
+    guess, not data, so those two methods raise immediately in sandbox
+    mode instead.
+
+    `place_multi_order` is Upstox-exclusive (no Groww/Fyers equivalent) —
+    an extra method, not part of the shared `OrderProvider` ABC, so it's
+    only reachable by going through this concrete class (`broker.orders`/
+    `broker.sandbox_orders`, both are `UpstoxOrderProvider`), same pattern
+    as `brokerkit_upstox.get_access_token`.
     """
 
-    def __init__(self, auth: AuthProvider, configuration: Configuration):
+    def __init__(self, auth: AuthProvider, configuration: Configuration, sandbox: bool = False):
         self._auth = auth
         self._configuration = configuration
+        self._sandbox = sandbox
         client = ApiClient(configuration)
         self._write = OrderApiV3(client)
         self._read = OrderApi(client)
@@ -52,6 +86,42 @@ class UpstoxOrderProvider(OrderProvider):
         if not order_ids:
             raise OrderError(f"Upstox place_order returned no order_ids: {resp}")
         return place_response_to_order(order_ids[0], request)
+
+    async def place_multi_order(self, requests: list[OrderRequest]) -> list[MultiOrderResult]:
+        """Places up to Upstox's own per-call limit of orders in one round
+        trip — real option-selling/multi-leg strategies (buying/selling
+        several strikes together) is the actual motivating case, not just
+        abstraction-completeness. Partial success is normal: some legs can
+        fill while others fail validation, so this never raises for a
+        per-order failure — only for a transport/auth-level error that
+        stops the whole batch. `correlation_id` is generated internally
+        (the input list's own index, as a string) so results come back
+        matched 1:1 with `requests`, in the same order — the caller never
+        has to handle Upstox's own split data/errors response shape.
+        """
+        await self._refresh_token()
+        payload = [
+            MultiOrderRequest(
+                **order_request_to_upstox(r),
+                slice=False,
+                correlation_id=str(i),
+            )
+            for i, r in enumerate(requests)
+        ]
+        # place_multi_order lives on the legacy-named `OrderApi` class
+        # (self._read elsewhere) despite being a write — verified from
+        # source (`order_api.py`), not a typo.
+        with upstox_errors(OrderError):
+            resp = await asyncio.to_thread(self._read.place_multi_order, payload)
+        results: dict[str, MultiOrderResult] = {}
+        for d in resp.data or []:
+            results[d.correlation_id] = MultiOrderResult(correlation_id=d.correlation_id, order_id=d.order_id)
+        for e in resp.errors or []:
+            results[e.correlation_id] = MultiOrderResult(correlation_id=e.correlation_id, error=e.message)
+        return [
+            results.get(str(i)) or MultiOrderResult(correlation_id=str(i), error="No result returned by Upstox")
+            for i in range(len(requests))
+        ]
 
     async def modify(
         self,
@@ -89,6 +159,13 @@ class UpstoxOrderProvider(OrderProvider):
         return await self.get_order(order_id, segment)
 
     async def get_order(self, order_id: str, segment: Segment) -> Order:
+        if self._sandbox:
+            raise OrderError(
+                "Upstox sandbox has no order-read endpoint (verified from the SDK's own "
+                "sandbox_urls allowlist: only place/modify/cancel/multi-place writes are "
+                "sandboxed) — get_order isn't available here, and modify()/cancel() call this "
+                "internally so they fail the same way."
+            )
         await self._refresh_token()
         with upstox_errors(OrderError):
             resp = await asyncio.to_thread(self._read.get_order_status, order_id=order_id)
@@ -97,6 +174,11 @@ class UpstoxOrderProvider(OrderProvider):
         return upstox_to_order(resp.data.to_dict())
 
     async def list_orders(self) -> list[Order]:
+        if self._sandbox:
+            raise OrderError(
+                "Upstox sandbox has no order-read endpoint (verified from the SDK's own "
+                "sandbox_urls allowlist) — list_orders isn't available here."
+            )
         await self._refresh_token()
         with upstox_errors(OrderError):
             resp = await asyncio.to_thread(self._read.get_order_book, _API_VERSION)
