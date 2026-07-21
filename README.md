@@ -143,7 +143,6 @@ packages/
   brokerkit-angelone/   # brokerkit_angelone
   brokerkit-zerodha/    # brokerkit_zerodha
 examples/               # one runnable example per broker
-docs/ROADMAP.md         # the full build log, phase by phase
 ```
 
 Hyphens are the pip distribution name, underscores the importable module — hyphens are illegal in module names.
@@ -215,7 +214,7 @@ The repo's own correctness checks worth re-running after any adapter change:
 - **`get_type_hints` sweep** over every provider method — catches annotation breakage that Python 3.14's deferred evaluation (PEP 649) otherwise hides until runtime.
 - **Dependency audit** — declared dependencies vs actually imported modules, per package.
 
-`docs/ROADMAP.md` carries the full build log: every design decision, every SDK quirk found by reading source, and an explicit split between what is live-verified and what is still written from docs.
+Each adapter's own README carries its design decisions, the SDK quirks found by reading source, and an explicit split between what is live-verified and what is still written from docs.
 
 ---
 

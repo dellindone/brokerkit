@@ -41,6 +41,11 @@ dependencies = [
     "requests",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dellindone/brokerkit"
+Repository = "https://github.com/dellindone/brokerkit"
+Issues = "https://github.com/dellindone/brokerkit/issues"
+
 # Explicit, so setuptools never guesses (a bad guess is what made the repo
 # root build an empty wheel).
 [tool.setuptools.packages.find]

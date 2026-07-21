@@ -88,6 +88,11 @@ all = [
     "brokerkit-zerodha",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dellindone/brokerkit"
+Repository = "https://github.com/dellindone/brokerkit"
+Issues = "https://github.com/dellindone/brokerkit/issues"
+
 # No code here. Without this, setuptools' flat-layout auto-discovery scans
 # the repo root and would treat docs/, examples/ and packages/ as packages.
 [tool.setuptools]
