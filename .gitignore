@@ -13,3 +13,8 @@ instruments.csv
 # smartapi-python (Angel One) writes logs/<date>/app.log into the cwd
 # from SmartConnect.__init__ / SmartWebSocketV2.__init__ — unavoidable SDK side effect
 logs/
+
+# Build artifacts (pip wheel / python -m build)
+build/
+dist/
+*.whl

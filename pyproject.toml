@@ -1,13 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# This is a META-package: it ships no code of its own, it just pulls in
+# brokerkit-core plus whichever broker adapters you ask for as extras.
+#
+#     pip install brokerkit[zerodha]
+#     pip install brokerkit[all]
+#
+# The importable package `brokerkit` lives in packages/brokerkit-core, and
+# each adapter is its own distribution under packages/brokerkit-<broker>.
+# (This file used to be named brokerkit-core, which meant `pip install .`
+# built an EMPTY wheel that then uninstalled and shadowed the real core.)
 [project]
-name = "brokerkit-core"
-version = "0.1.0"
-description = "Core abstractions and interfaces for BrokerKit."
+name = "brokerkit"
+version = "1.0.0"
+description = "Unified async interface over Indian broker APIs (Groww, Fyers, Upstox, Dhan, Angel One, Zerodha)."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 
 authors = [
-    { name = "Aditya Vishwakarma" }
+    { name = "Aditya Vishwakarma", email = "vaditya098@gmail.com" }
+]
+maintainers = [
+    { name = "Aditya Vishwakarma", email = "vaditya098@gmail.com" }
 ]
 
 keywords = [
@@ -18,17 +35,59 @@ keywords = [
     "adapter",
     "sdk",
     "python",
+    "nse",
+    "bse",
+    "algotrading",
 ]
 
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial :: Investment",
     "Typing :: Typed",
 ]
+
+dependencies = [
+    "brokerkit-core",
+]
+
+[project.optional-dependencies]
+groww = ["brokerkit-groww"]
+fyers = ["brokerkit-fyers"]
+upstox = ["brokerkit-upstox"]
+dhan = ["brokerkit-dhan"]
+angelone = ["brokerkit-angelone"]
+zerodha = ["brokerkit-zerodha"]
+# NOTE: `all` currently CANNOT be resolved by pip in one go, and the cause is
+# upstream, not this project. fyers-apiv3 pins aiohttp EXACTLY (==3.9.3 on
+# 3.1.14, the latest; ==3.8.4 on older releases) while growwapi requires
+# aiohttp>=3.11.18 — no version combination satisfies both, so
+# brokerkit-groww and brokerkit-fyers cannot coexist under a single strict
+# resolution, and listing order makes no difference (both orders tested).
+# Verified against clean venvs 2026-07-21; every other combination installs
+# cleanly and passes `pip check`. Both SDKs do run fine on aiohttp 3.9.3, so
+# the workaround is to install them in separate pip steps and then pin
+# aiohttp back — see the README. (Not `--no-deps growwapi`: that also skips
+# pandas/nats-py/protobuf and the adapter then fails to import.)
+all = [
+    "brokerkit-fyers",
+    "brokerkit-groww",
+    "brokerkit-upstox",
+    "brokerkit-dhan",
+    "brokerkit-angelone",
+    "brokerkit-zerodha",
+]
+
+# No code here. Without this, setuptools' flat-layout auto-discovery scans
+# the repo root and would treat docs/, examples/ and packages/ as packages.
+[tool.setuptools]
+packages = []

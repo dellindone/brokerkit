@@ -4,16 +4,43 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brokerkit-angelone"
-version = "0.0.0"
+version = "1.0.0"
+description = "Angel One (SmartAPI) adapter for BrokerKit."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Aditya Vishwakarma", email = "vaditya098@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
+
 dependencies = [
     "brokerkit-core",
     "smartapi-python",
-    # smartapi-python's own setup.py forgets to declare these, but SmartConnect
-    # imports logzero at module top and SmartWebSocketV2 imports websocket
-    # (websocket-client) — so they must be installed alongside it or import
-    # fails. pyotp is for the TOTP auto-login. requests for the public master.
+    # smartapi-python's own setup.py forgets to declare these, but
+    # SmartConnect imports logzero at module top and SmartWebSocketV2
+    # imports websocket (websocket-client) — so a bare install fails on
+    # import unless they are pulled in here.
     "logzero",
     "websocket-client",
     "pyotp",
     "requests",
 ]
+
+# Explicit, so setuptools never guesses (a bad guess is what made the repo
+# root build an empty wheel).
+[tool.setuptools.packages.find]
+include = ["brokerkit_angelone*"]

@@ -132,14 +132,23 @@ class ZerodhaGtt:
             resp = await asyncio.to_thread(self._client.delete_gtt, trigger_id)
         return int((resp or {}).get("trigger_id") or trigger_id)
 
-    async def get(self, trigger_id: int) -> GttTrigger:
+    async def get_trigger(self, trigger_id: int) -> GttTrigger:
         with zerodha_errors():
             raw = await asyncio.to_thread(self._client.get_gtt, trigger_id)
         if not raw:
             raise BrokerKitError(f"No GTT found with id {trigger_id}")
         return _to_trigger(raw)
 
-    async def list(self) -> list[GttTrigger]:
+    # NOT named `list`. A method called `list` shadows the builtin inside the
+    # class namespace, so every `list[...]` annotation in this class (place's
+    # `legs`, modify's `trigger_values`, this return type) fails to resolve
+    # with "'function' object is not subscriptable". On Python 3.14 that
+    # stays hidden at import time because PEP 649 defers annotation
+    # evaluation — it only surfaces later, in get_type_hints, pydantic,
+    # IDE tooling or anything doing runtime introspection. Found by running
+    # get_type_hints over every provider class in every adapter. The name
+    # also matches the OrderProvider convention (list_orders/get_order).
+    async def list_triggers(self) -> list[GttTrigger]:
         with zerodha_errors():
             raw = await asyncio.to_thread(self._client.get_gtts)
         return [_to_trigger(t) for t in raw or []]
