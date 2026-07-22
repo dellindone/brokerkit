@@ -179,6 +179,11 @@ def parse_master_row(row: dict[str, str]) -> Instrument | None:
         name=row.get("name", "") or "",
         isin=None,
         exchange_token=row.get("exchange_token") or None,
+        # Kite addresses instruments by its own instrument_token, which the
+        # master publishes alongside the exchange token. instrument_token()
+        # above can still reconstruct it, so this is a convenience, not a
+        # new dependency.
+        broker_token=row.get("instrument_token") or None,
         lot_size=_int(row.get("lot_size"), default=1),
         tick_size=_tick_size(row.get("tick_size")),
         expiry=_master_expiry(row.get("expiry", "")),

@@ -108,12 +108,15 @@ def _segment_from_token(token: str) -> Segment:
 
 def upstox_key(instrument: Instrument) -> str:
     """Instrument -> Upstox's own instrument_key (e.g. "NSE_EQ|INE002A01018"),
-    stashed onto exchange_token by UpstoxInstruments — every Upstox call
-    that needs to address an instrument uses this, never a reconstruction.
+    set on broker_token by UpstoxInstruments — every Upstox call that needs to
+    address an instrument uses this, never a reconstruction.
+
+    Reads broker_token rather than exchange_token: the latter now carries the
+    exchange's own number (RELIANCE 2885), which Upstox's API does not accept.
     """
-    if not instrument.exchange_token:
-        raise ValueError(f"Instrument {instrument.symbol!r} has no Upstox instrument_key (exchange_token)")
-    return instrument.exchange_token
+    if not instrument.broker_token:
+        raise ValueError(f"Instrument {instrument.symbol!r} has no Upstox instrument_key (broker_token)")
+    return instrument.broker_token
 
 
 def order_request_to_upstox(request: OrderRequest) -> dict[str, Any]:

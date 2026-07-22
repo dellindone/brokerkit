@@ -20,8 +20,11 @@ def instruments():
 
 
 def test_upstox_order_payload_and_order_mapping(mapper, cash_instrument):
-    # exchange_token doubles as Upstox's instrument_key — the payload keys off it.
-    cash_instrument = cash_instrument.model_copy(update={"exchange_token": "NSE_EQ|INE002A01018"})
+    # Upstox addresses instruments by instrument_key, which lives on
+    # broker_token; exchange_token carries the exchange's own number (2885 on
+    # the fixture) and is not accepted by the API. The payload must key off
+    # broker_token, so it is the only one set here.
+    cash_instrument = cash_instrument.model_copy(update={"broker_token": "NSE_EQ|INE002A01018"})
     request = OrderRequest(
         instrument=cash_instrument,
         transaction_type=TransactionType.SELL,

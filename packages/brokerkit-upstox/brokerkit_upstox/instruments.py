@@ -3,8 +3,9 @@
 import asyncio
 import gzip
 import json
+from collections.abc import Iterable
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 import requests
 
@@ -59,7 +60,17 @@ def _instrument_type(raw: str, segment: Segment) -> InstrumentType | None:
 _TICK_PAISE_PER_RUPEE = Decimal("100")
 
 
-def _parse_row(row: dict) -> Instrument | None:
+def _optional_decimal(value) -> Decimal | None:
+    """Numeric master columns Upstox simply omits when they do not apply."""
+    if value is None or value == "":
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _parse_row(row: dict, *, include_raw: bool = False) -> Instrument | None:
     segment = _SEGMENT_MAP.get(row.get("segment"))
     if segment is None:
         return None
@@ -75,7 +86,12 @@ def _parse_row(row: dict) -> Instrument | None:
         instrument_type=instrument_type,
         name=row.get("name", ""),
         isin=row.get("isin"),
-        exchange_token=row["instrument_key"],  # Upstox addresses everything by instrument_key
+        # The master publishes both: `exchange_token` is the exchange's own
+        # number (RELIANCE 2885, identical at every other broker) and
+        # `instrument_key` is Upstox's addressing scheme. They serve different
+        # purposes -- one joins, the other calls -- so both are kept.
+        exchange_token=str(row["exchange_token"]) if row.get("exchange_token") else None,
+        broker_token=row["instrument_key"],
         lot_size=int(row.get("lot_size") or 1),
         # Upstox's tick_size is in PAISE, like Dhan's and Angel One's — caught
         # 2026-07-21 by a cross-broker comparison of the same instruments:
@@ -89,21 +105,43 @@ def _parse_row(row: dict) -> Instrument | None:
         expiry=datetime.fromtimestamp(expiry_ms / 1000).date() if expiry_ms else None,
         strike=Decimal(str(strike)) if strike else None,
         underlying=row.get("underlying_symbol"),
+        # Quantities and multipliers, not prices -- the paise conversion that
+        # tick_size needs does not apply to any of these.
+        freeze_quantity=_optional_decimal(row.get("freeze_quantity")),
+        qty_multiplier=_optional_decimal(row.get("qty_multiplier")),
+        security_type=row.get("security_type") or None,
+        mtf_enabled=row.get("mtf_enabled") if isinstance(row.get("mtf_enabled"), bool) else None,
+        # Upstox calls this "mtf_bracket" and publishes a percentage, where Fyers
+        # and Dhan publish multipliers. Carried as-is; see the field's docstring
+        # for why cross-broker comparison of this one needs care.
+        mtf_leverage=_optional_decimal(row.get("mtf_bracket")),
+        raw=dict(row) if include_raw else {},
     )
 
 
-def _fetch_one(url: str) -> list[Instrument]:
+def _fetch_one(
+    url: str,
+    *,
+    segments: frozenset[Segment] | None = None,
+    instrument_types: frozenset[InstrumentType] | None = None,
+    include_raw: bool = False,
+) -> list[Instrument]:
     response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
     response.raise_for_status()
     rows = json.loads(gzip.decompress(response.content))
     out: list[Instrument] = []
     for row in rows:
         try:
-            inst = _parse_row(row)
+            inst = _parse_row(row, include_raw=include_raw)
         except (ValueError, KeyError, TypeError):
             continue
-        if inst is not None:
-            out.append(inst)
+        if inst is None:
+            continue
+        if segments is not None and inst.segment not in segments:
+            continue
+        if instrument_types is not None and inst.instrument_type not in instrument_types:
+            continue
+        out.append(inst)
     return out
 
 
@@ -116,6 +154,37 @@ class UpstoxInstruments(InstrumentProvider):
     reads it back from there instead of reconstructing it.
     """
 
-    async def fetch_instruments(self) -> list[Instrument]:
-        groups = await asyncio.gather(*(asyncio.to_thread(_fetch_one, url) for url in _URLS.values()))
+    async def fetch_instruments(
+        self,
+        *,
+        segments: Iterable[Segment] | None = None,
+        instrument_types: Iterable[InstrumentType] | None = None,
+        include_raw: bool = False,
+    ) -> list[Instrument]:
+        wanted_segments = frozenset(segments) if segments is not None else None
+        wanted_types = frozenset(instrument_types) if instrument_types is not None else None
+        # Upstox splits its master by EXCHANGE, not by segment, so a segment
+        # filter mostly cannot skip a download -- NSE and BSE each carry both
+        # cash and derivatives. MCX is the one exception: it is entirely
+        # commodity, so it can be skipped outright when commodities are not
+        # wanted, which is the common case for an equities caller.
+        urls = [
+            url
+            for exchange, url in _URLS.items()
+            if wanted_segments is None
+            or exchange is not Exchange.MCX
+            or Segment.COMMODITY in wanted_segments
+        ]
+        groups = await asyncio.gather(
+            *(
+                asyncio.to_thread(
+                    _fetch_one,
+                    url,
+                    segments=wanted_segments,
+                    instrument_types=wanted_types,
+                    include_raw=include_raw,
+                )
+                for url in urls
+            )
+        )
         return [inst for group in groups for inst in group]

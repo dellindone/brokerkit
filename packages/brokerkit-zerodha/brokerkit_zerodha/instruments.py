@@ -3,9 +3,11 @@
 import asyncio
 import csv
 import io
+from collections.abc import Iterable
 
 import requests
 
+from brokerkit.enums import InstrumentType, Segment
 from brokerkit.interfaces.instrument import InstrumentProvider
 from brokerkit.models.instrument import Instrument
 
@@ -38,15 +40,30 @@ async def fetch_master_rows() -> list[dict[str, str]]:
     return await asyncio.to_thread(_fetch_master_rows)
 
 
-def _parse(rows: list[dict[str, str]]) -> list[Instrument]:
+def _parse(
+    rows: list[dict[str, str]],
+    *,
+    segments: frozenset[Segment] | None = None,
+    instrument_types: frozenset[InstrumentType] | None = None,
+    include_raw: bool = False,
+) -> list[Instrument]:
     out: list[Instrument] = []
     for row in rows:
         try:
             inst = parse_master_row(row)
         except (ValueError, KeyError):
             continue
-        if inst is not None:
-            out.append(inst)
+        if inst is None:
+            continue
+        if segments is not None and inst.segment not in segments:
+            continue
+        if instrument_types is not None and inst.instrument_type not in instrument_types:
+            continue
+        if include_raw:
+            # Kite's master has no ISIN and no reference columns beyond what is
+            # already mapped, so raw is an echo rather than a source of extras.
+            inst = inst.model_copy(update={"raw": dict(row)})
+        out.append(inst)
     return out
 
 
@@ -54,6 +71,19 @@ class ZerodhaInstruments(InstrumentProvider):
     """No auth needed — Kite's master is a public CSV, re-fetched on every
     call (same no-caching contract as every other adapter)."""
 
-    async def fetch_instruments(self) -> list[Instrument]:
+    async def fetch_instruments(
+        self,
+        *,
+        segments: Iterable[Segment] | None = None,
+        instrument_types: Iterable[InstrumentType] | None = None,
+        include_raw: bool = False,
+    ) -> list[Instrument]:
+        # One combined CSV for every exchange, so filters cannot skip a download.
         rows = await fetch_master_rows()
-        return await asyncio.to_thread(_parse, rows)
+        return await asyncio.to_thread(
+            _parse,
+            rows,
+            segments=frozenset(segments) if segments is not None else None,
+            instrument_types=frozenset(instrument_types) if instrument_types is not None else None,
+            include_raw=include_raw,
+        )

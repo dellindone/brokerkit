@@ -1,7 +1,7 @@
 """Angel One response-to-model mapping."""
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from brokerkit.enums import (
@@ -104,13 +104,17 @@ def _index_type(instrumenttype: str) -> InstrumentType | None:
     return InstrumentType.IDX if instrumenttype in ("AMXIDX", "INDEX") else None
 
 
-def parse_master_row(row: dict[str, Any]) -> Instrument | None:
+def parse_master_row(row: dict[str, Any], *, include_raw: bool = False) -> Instrument | None:
     """One OpenAPIScripMaster.json row -> Instrument, or None to skip.
 
     Angel's master has NO ISIN column (fields are token/symbol/name/expiry/
     strike/lotsize/instrumenttype/exch_seg/tick_size/freeze_qty) — so
     Instrument.isin is always None here, same as Fyers. ISIN is only
     available per-holding on the portfolio response.
+
+    That makes this the thinnest master of the four: ten columns against Fyers'
+    forty-four. Of the optional reference fields only ``freeze_quantity`` has a
+    source here; the rest stay None rather than being guessed at.
     """
     mapped = _MASTER_EXCH.get(row.get("exch_seg", ""))
     if mapped is None:
@@ -149,13 +153,32 @@ def parse_master_row(row: dict[str, Any]) -> Instrument | None:
         instrument_type=instrument_type,
         name=row.get("name", "") or "",
         isin=None,
-        exchange_token=row.get("token", "") or None,
+        exchange_token=(token := row.get("token", "") or None),
+        # Angel addresses instruments by the exchange token itself, so the
+        # two are the same value here -- populated anyway so callers never
+        # have to know which brokers conflate them.
+        broker_token=token,
         lot_size=_int(row.get("lotsize"), default=1),
         tick_size=_paise_or_default(row.get("tick_size")),
         expiry=_master_expiry(row.get("expiry", "")),
         strike=_master_strike(row.get("strike", "")),
         underlying=(row.get("name") or None) if is_derivative else None,
+        freeze_quantity=_master_freeze_qty(row.get("freeze_qty", "")),
+        raw=dict(row) if include_raw else {},
     )
+
+
+def _master_freeze_qty(raw: Any) -> Decimal | None:
+    """Angel publishes freeze_qty as a quantity string, blank where it does not
+    apply. It is a share count, so the paise conversion tick_size needs does
+    not apply."""
+    if raw in (None, ""):
+        return None
+    try:
+        quantity = Decimal(str(raw))
+    except InvalidOperation:
+        return None
+    return quantity if quantity > 0 else None
 
 
 def _master_expiry(raw: str) -> Any:
